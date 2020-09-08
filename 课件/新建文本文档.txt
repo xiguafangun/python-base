@@ -1,0 +1,3 @@
+https://insights.stackoverflow.com/survey/2019
+https://www.jetbrains.com/lp/python-developers-survey-2019/
+https://code.visualstudio.com/docs/python/python-tutorial
