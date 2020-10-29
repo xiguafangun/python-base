@@ -63,11 +63,11 @@ Python3 是 python2 的升级版本，从设计之初便不兼容 python2。Pyth
 可到 python 的官网https://www.python.org下载安装。
 注：默认下载的 python 是 32 位，鉴于现在很多系统都已经是 64 位，安装 64 位可获得更高的性能。
 
-Windows 3.8.5
-https://www.python.org/ftp/python/3.8.5/python-3.8.5-amd64.exe
+下载缓慢的同学可以从以下网盘下载
 
-Mac 3.8.5
-https://www.python.org/ftp/python/3.8.5/python-3.8.5-macosx10.9.pkg
+[网盘链接](https://pan.baidu.com/s/1a3q1Qb-w32sdWVfGKt08Bw)
+
+提取码：`crbc`
 
 注意勾选 Add to Path，不然会出现找不到 python 等情况。
 
