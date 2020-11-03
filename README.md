@@ -1,4 +1,8 @@
-# 目录
+![logo](https://i.loli.net/2020/11/03/OuSckQsovZDgG6R.png)
+
+# python 基础课
+
+## 目录
 
 [第一课：python 与 vscode](第一课：python与vscode.md)
 
