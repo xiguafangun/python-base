@@ -87,7 +87,7 @@ Python3 是 python2 的升级版本，从设计之初便不兼容 python2。Pyth
 -   Pylance （提供了自动导入，静态校验等功能）
 -   TabNine （强大的人工智能自动补全插件）
 
-针对 python 在 vscode 下使用的详细配置可以看这篇文章 xxxxx :TODO
+<!-- 针对 python 在 vscode 下使用的详细配置可以看这篇文章 xxxxx :TODO -->
 
 ## 第一行代码
 
