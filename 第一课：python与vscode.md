@@ -23,7 +23,7 @@ Simple is better than complex.
 Complex is better than complicated.
 Readability counts.
 
-在交互模式下输入 import this 有惊喜。
+<!-- 在交互模式下输入 import this 有惊喜。 -->
 
 ## Python 的特点
 
@@ -31,7 +31,9 @@ Python 是一门解释型语言，需要在解释器上运行。相比编译后�
 
 Python 是面向对象的语言，包括函数、字符串、数字甚至类型在内都是对象。适合缺少对象的同学。
 
-Python 的第三方库丰富，因此开发极其方便，代码量极少。解决同一个问题，通常 python 的代码量只是 java 的 1/5。人生苦短，我用 python -- Bruce Eckel。
+Python 的第三方库丰富，因此开发极其方便，代码量极少。解决同一个问题，通常 python 的代码量只是 java 的 1/5。
+
+人生苦短，我用 python -- Bruce Eckel。
 
 ![Bruce Eckel](https://i.loli.net/2020/09/10/TYjCMRzea9QKnX1.png)
 
@@ -61,15 +63,14 @@ Python3 是 python2 的升级版本，从设计之初便不兼容 python2。Pyth
 ## Python 的安装
 
 可到 python 的官网https://www.python.org下载安装。
-注：默认下载的 python 是 32 位，鉴于现在很多系统都已经是 64 位，安装 64 位可获得更高的性能。
 
-下载缓慢的同学可以从以下网盘下载
+因 python 官方服务器在国外，下载缓慢的同学可以从以下网盘下载
 
 [网盘链接](https://pan.baidu.com/s/1a3q1Qb-w32sdWVfGKt08Bw)
 
 提取码：`crbc`
 
-注意勾选 Add to Path，不然会出现找不到 python 等情况。
+注意勾选 Add to Path，不然会出现无法运行 python 文件等情况。
 
 ![python 安装界面](https://i.loli.net/2020/09/10/BJINyF9sgm5hxba.png)
 
@@ -89,6 +90,8 @@ Python3 是 python2 的升级版本，从设计之初便不兼容 python2。Pyth
 
 <!-- 针对 python 在 vscode 下使用的详细配置可以看这篇文章 xxxxx :TODO -->
 
+![20201114164526](https://i.loli.net/2020/11/14/f7psSCMtBX2WK9j.png)
+
 ## 第一行代码
 
 首先建一个空文件夹用作项目文件夹，使用 vscode 打开。 紧接着在左侧的项目目录右键选择新建文件，取名为 first.py。
@@ -105,7 +108,7 @@ print('hello world')
 
 ![run](https://i.loli.net/2020/09/10/Nm3uTtP2JxqpQFM.png)
 
-如果底部出现以下内容则表明运行成功。
+如果底部出现了 hello world 则表明运行成功。
 
 ![content](https://i.loli.net/2020/09/10/B7JxsLpr8uOU5iK.png)
 
