@@ -35,6 +35,8 @@ finded_movie_ids = []
 url_queue = []
 movie_queue = []
 
+comment_queue = []
+
 headers = {'User-Agent': random.choice(agents)}
 response = requests.get('https://movie.douban.com', headers=headers)
 
@@ -59,7 +61,20 @@ for link in soup.find_all('a'):
 
 class Manager:
     def __init__(self):
-        pass
+        '''
+        判断如果文件存在就读取文件
+        主要需要四个文件
+        1.识别到的url链接
+        2.识别到的movie id
+        3.url任务队列
+        4.movie id任务队列
+        5.影评url
+        5.影评
+            字段：
+            movie_id
+            标题
+            年份
+        '''
 
     def runing(self):
         while True:
@@ -101,6 +116,10 @@ class MoveFinder:
         self.url = 'https://movie.douban.com/subject/%s/' % id
 
     def process(self):
+        '''
+        遍历影评所有页面
+        将提取出得url加入任务队列
+        '''
         self.response = requests.get(self.url, headers=headers)
         self.soup = BeautifulSoup(response.text, 'lxml')
         pattern = r'https://movie.douban.com/subject/(.*?)/'
