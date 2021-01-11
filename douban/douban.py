@@ -29,6 +29,10 @@ agents = [
 ]
 
 
+urls = []
+movie_ids = []
+
+
 headers = {'User-Agent': random.choice(agents)}
 response = requests.get('https://movie.douban.com', headers=headers)
 
@@ -36,14 +40,61 @@ soup = BeautifulSoup(response.text, 'lxml')
 
 pattern = r'https://movie.douban.com/subject/(.*?)/'
 
-ids = []
-
 for link in soup.find_all('a'):
     href = link.get('href')
     if href:
+        urls.append()
+
         result = re.search(pattern, href)
         if result:
-            ids.append(result.group(1))
+            movie_ids.append(result.group(1))
 
 
-print(ids)
+class Manager:
+    def __init__(self):
+        idx_urls = 0
+        idx_movie_ids = 0
+
+        while True:
+            if idx_urls < len(urls):
+                pass
+
+
+class WebFinder:
+    def __init__(self, url):
+        self.url = url
+
+    def process(self):
+        self.response = requests.get(self.url, headers=headers)
+        self.soup = BeautifulSoup(response.text, 'lxml')
+        pattern = r'https://movie.douban.com/subject/(.*?)/'
+        for link in soup.find_all('a'):
+            href = link.get('href')
+            if href:
+                urls.append()
+
+                result = re.search(pattern, href)
+                if result:
+                    movie_ids.append(result.group(1))
+
+
+class MoveFinder:
+    def __init__(self, id):
+        self.id = id
+        self.url = 'https://movie.douban.com/subject/%s/' % id
+
+    def process(self):
+        self.response = requests.get(self.url, headers=headers)
+        self.soup = BeautifulSoup(response.text, 'lxml')
+        pattern = r'https://movie.douban.com/subject/(.*?)/'
+        for link in soup.find_all('a'):
+            href = link.get('href')
+            if href:
+                urls.append()
+
+                result = re.search(pattern, href)
+                if result:
+                    movie_ids.append(result.group(1))
+
+
+print(movie_ids)
