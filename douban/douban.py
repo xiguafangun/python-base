@@ -29,9 +29,11 @@ agents = [
 ]
 
 
-urls = []
-movie_ids = []
+finded_urls = []
+finded_movie_ids = []
 
+url_queue = []
+movie_queue = []
 
 headers = {'User-Agent': random.choice(agents)}
 response = requests.get('https://movie.douban.com', headers=headers)
@@ -43,21 +45,36 @@ pattern = r'https://movie.douban.com/subject/(.*?)/'
 for link in soup.find_all('a'):
     href = link.get('href')
     if href:
-        urls.append()
+        if href not in finded_urls:
+            finded_urls.append(href)
+            url_queue.append(href)
 
         result = re.search(pattern, href)
         if result:
-            movie_ids.append(result.group(1))
+            movie_id = result.group(1)
+            if movie_id not in finded_movie_ids:
+                finded_movie_ids.append(movie_id)
+                movie_queue.append(movie_id)
 
 
 class Manager:
     def __init__(self):
-        idx_urls = 0
-        idx_movie_ids = 0
+        pass
 
+    def runing(self):
         while True:
-            if idx_urls < len(urls):
-                pass
+            if len(url_queue) > 0:
+                url = url_queue.pop()
+                webf = WebFinder(url)
+                webf.process()
+            
+            if len(movie_queue) > 0:
+                movie_id = movie_queue.pop()
+                movie = MoveFinder(movie_id)
+                movie.process()
+
+                webf = WebFinder('https://movie.douban.com/subject/%s/' % movie_id)
+                webf.process()
 
 
 class WebFinder:
@@ -97,4 +114,6 @@ class MoveFinder:
                     movie_ids.append(result.group(1))
 
 
-print(movie_ids)
+manager = Manager()
+
+manager.runing()
