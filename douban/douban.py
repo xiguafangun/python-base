@@ -4,6 +4,8 @@ import random
 import re
 import csv
 import threading
+from queue import Queue
+import json
 
 from bs4 import BeautifulSoup
 
@@ -32,36 +34,16 @@ agents = [
 ]
 
 
-headers = {'User-Agent': random.choice(agents)}
-response = requests.get('https://movie.douban.com', headers=headers)
-
-soup = BeautifulSoup(response.text, 'lxml')
-
-pattern = r'https://movie.douban.com/subject/(.*?)/'
-
-for link in soup.find_all('a'):
-    href = link.get('href')
-    if href:
-        if href not in finded_urls:
-            finded_urls.append(href)
-            url_queue.append(href)
-
-        result = re.search(pattern, href)
-        if result:
-            movie_id = result.group(1)
-            if movie_id not in finded_movie_ids:
-                finded_movie_ids.append(movie_id)
-                movie_queue.append(movie_id)
-
-
 class Manager:
-    finded_urls = []
-    finded_movie_ids = []
+    finded_urls = Queue()
+    finded_movie_ids = Queue()
 
-    url_queue = []
-    movie_queue = []
+    url_task = Queue()
+    movie_task = Queue()
 
-    comment_queue = []
+    comment_queue = Queue()
+
+    comment_ids = Queue()
 
     _instance_lock = threading.Lock()
 
@@ -70,7 +52,6 @@ class Manager:
             with cls._instance_lock:
                 if not hasattr(cls, '_instance'):
                     cls._instance = super().__new__(cls)
-
             return cls._instance
 
     def __init__(self):
@@ -88,14 +69,28 @@ class Manager:
             标题
             年份
         """
-        # self.read_data()
+
+        if not self.read_data():
+            self.firt_run()
 
     def read_data(self):
-        if os.path.exists('urls.csv'):
-            with open('urls.csv', 'r') as csvfile:
-                reader = csv.reader(csvfile)
-                for row in reader:
-                    print(row)
+        if os.path.exists('data.json'):
+            with open('data.json', 'r') as datafile:
+                data = json.loads(datafile.read())
+                self.finded_urls = data['finded_urls']
+                self.finded_movie_ids = data['finded_movie_ids']
+
+                self.url_task = data['url_task']
+                self.movie_task = data['movie_task']
+
+                self.comment_queue = data['comment_queue']
+                self.comment_ids = data['comment_ids']
+            return True
+
+        return False
+
+    def firt_run(self):
+        self.page_process('https://movie.douban.com')
 
     def save_data(self):
         if os.path.exists('urls.csv'):
@@ -104,8 +99,8 @@ class Manager:
 
     def runing(self):
         while True:
-            if len(self.url_queue) > 0:
-                url = self.url_queue.pop()
+            url = self.url_task.get()
+            if url:
                 self.page_process(url)
 
             if len(self.movie_queue) > 0:
@@ -121,7 +116,6 @@ class Manager:
             href = link.get('href')
             if href:
                 self.urls.append()
-
                 result = re.search(pattern, href)
                 if result:
                     self.movie_ids.append(result.group(1))
@@ -146,6 +140,15 @@ class MoveFinder:
         self.title = ''
         self.year = None
         self.score = None
+        self.comment_amount = None
+
+    def get_comments(self, url):
+        page_text = Manager().page_process(url)
+        for page in range(0, 10000, 20):
+            page_text = Manager().page_process(page)
+            pattern = r'https://movie.douban.com/review/(.*?)/'
+            result = re.search(pattern, page_text)
+            Manager().comment_ids.put('')
 
 
 manager = Manager()
