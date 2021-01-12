@@ -1,6 +1,9 @@
+import os
 import requests
 import random
 import re
+import csv
+import threading
 
 from bs4 import BeautifulSoup
 
@@ -29,14 +32,6 @@ agents = [
 ]
 
 
-finded_urls = []
-finded_movie_ids = []
-
-url_queue = []
-movie_queue = []
-
-comment_queue = []
-
 headers = {'User-Agent': random.choice(agents)}
 response = requests.get('https://movie.douban.com', headers=headers)
 
@@ -60,8 +55,26 @@ for link in soup.find_all('a'):
 
 
 class Manager:
+    finded_urls = []
+    finded_movie_ids = []
+
+    url_queue = []
+    movie_queue = []
+
+    comment_queue = []
+
+    _instance_lock = threading.Lock()
+
+    def __new__(cls, *args, **kwargs):
+        if not hasattr(cls, '_instance'):
+            with cls._instance_lock:
+                if not hasattr(cls, '_instance'):
+                    cls._instance = super().__new__(cls)
+
+            return cls._instance
+
     def __init__(self):
-        '''
+        """
         判断如果文件存在就读取文件
         主要需要四个文件
         1.识别到的url链接
@@ -74,40 +87,49 @@ class Manager:
             movie_id
             标题
             年份
-        '''
+        """
+        # self.read_data()
+
+    def read_data(self):
+        if os.path.exists('urls.csv'):
+            with open('urls.csv', 'r') as csvfile:
+                reader = csv.reader(csvfile)
+                for row in reader:
+                    print(row)
+
+    def save_data(self):
+        if os.path.exists('urls.csv'):
+            with open('urls.csv', 'w') as csvfile:
+                writer = csv.writer(csvfile)
 
     def runing(self):
         while True:
-            if len(url_queue) > 0:
-                url = url_queue.pop()
-                webf = WebFinder(url)
-                webf.process()
-            
-            if len(movie_queue) > 0:
-                movie_id = movie_queue.pop()
+            if len(self.url_queue) > 0:
+                url = self.url_queue.pop()
+                self.page_process(url)
+
+            if len(self.movie_queue) > 0:
+                movie_id = self.movie_queue.pop()
                 movie = MoveFinder(movie_id)
                 movie.process()
 
-                webf = WebFinder('https://movie.douban.com/subject/%s/' % movie_id)
-                webf.process()
-
-
-class WebFinder:
-    def __init__(self, url):
-        self.url = url
-
-    def process(self):
-        self.response = requests.get(self.url, headers=headers)
-        self.soup = BeautifulSoup(response.text, 'lxml')
+    def page_process(self, url):
+        response = self.get_response(url)
+        soup = BeautifulSoup(response.text, 'lxml')
         pattern = r'https://movie.douban.com/subject/(.*?)/'
         for link in soup.find_all('a'):
             href = link.get('href')
             if href:
-                urls.append()
+                self.urls.append()
 
                 result = re.search(pattern, href)
                 if result:
-                    movie_ids.append(result.group(1))
+                    self.movie_ids.append(result.group(1))
+        return response.text
+
+    def get_response(self, url):
+        headers = {'User-Agent': random.choice(agents)}
+        return requests.get('https://movie.douban.com', headers=headers)
 
 
 class MoveFinder:
@@ -116,23 +138,15 @@ class MoveFinder:
         self.url = 'https://movie.douban.com/subject/%s/' % id
 
     def process(self):
-        '''
+        """
         遍历影评所有页面
         将提取出得url加入任务队列
-        '''
-        self.response = requests.get(self.url, headers=headers)
-        self.soup = BeautifulSoup(response.text, 'lxml')
-        pattern = r'https://movie.douban.com/subject/(.*?)/'
-        for link in soup.find_all('a'):
-            href = link.get('href')
-            if href:
-                urls.append()
-
-                result = re.search(pattern, href)
-                if result:
-                    movie_ids.append(result.group(1))
+        """
+        page_text = Manager().page_process(self.url)
+        self.title = ''
+        self.year = None
+        self.score = None
 
 
 manager = Manager()
-
-manager.runing()
+manager.running()
