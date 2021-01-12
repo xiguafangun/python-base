@@ -35,8 +35,8 @@ agents = [
 
 
 class Manager:
-    finded_urls = Queue()
-    finded_movie_ids = Queue()
+    finded_urls = list()
+    finded_movie_ids = list()
 
     url_task = Queue()
     movie_task = Queue()
@@ -110,16 +110,26 @@ class Manager:
 
     def page_process(self, url):
         response = self.get_response(url)
-        soup = BeautifulSoup(response.text, 'lxml')
-        pattern = r'https://movie.douban.com/subject/(.*?)/'
-        for link in soup.find_all('a'):
-            href = link.get('href')
-            if href:
-                self.urls.append()
-                result = re.search(pattern, href)
-                if result:
-                    self.movie_ids.append(result.group(1))
-        return response.text
+        text = response.text
+        url_pattern = r'"https://movie.douban.com/.*?"'
+        # pattern = r'https://movie.douban.com/subject/(.*?)/'
+        # result = re.search(url_pattern, text)
+        result = re.findall(url_pattern, text)
+
+        for url in result:
+            if url not in self.finded_urls:
+                self.finded_urls.append(url)
+                self.url_task.put(url)
+
+        movie_pattern = r'https://movie.douban.com/subject/(.*?)/'
+        result = re.findall(movie_pattern, text)
+
+        for movie_id in result:
+            if url not in self.finded_urls:
+                self.finded_urls.append(url)
+                self.url_task.put(url)
+
+        return text
 
     def get_response(self, url):
         headers = {'User-Agent': random.choice(agents)}
