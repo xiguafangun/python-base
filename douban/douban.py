@@ -3,12 +3,13 @@ import requests
 import random
 import re
 import csv
-import threading
+
+# import threading
 from collections import deque
 import pickle
 import time
 
-from bs4 import BeautifulSoup
+# from bs4 import BeautifulSoup
 
 agents = [
     "Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6_8; en-us) AppleWebKit/534.50 (KHTML, like Gecko) Version/5.1 Safari/534.50",
@@ -33,6 +34,8 @@ agents = [
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36"
     "Mozilla/5.0 (X11; Linux x86_64; rv:76.0) Gecko/20100101 Firefox/76.0",
 ]
+
+# http://httpbin.org/get
 
 
 class Manager:
