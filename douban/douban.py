@@ -4,8 +4,7 @@ import random
 import re
 import csv
 import threading
-from queue import Queue
-import json
+from collections import deque
 import pickle
 import time
 
@@ -37,31 +36,14 @@ agents = [
 
 
 class Manager:
-    finded_urls = list()
-    finded_movie_ids = list()
-
-    url_task = Queue()
-    movie_task = Queue()
-
-    comment_queue = Queue()
-
-    comment_ids = Queue()
-
-    last_time = int(time())
-
     _instance_lock = threading.Lock()
 
     def __new__(cls, *args, **kwargs):
         if not hasattr(cls, '_instance'):
             with cls._instance_lock:
                 if not hasattr(cls, '_instance'):
-                    if os.path.exists('data'):
-                        print('存在配置文件')
-                        with open('data', 'rb') as datafile:
-                            cls._instance = pickle.load(datafile)
-                    else:
-                        cls._instance = super().__new__(cls)
-            return cls._instance
+                    cls._instance = super().__new__(cls)
+        return cls._instance
 
     def __init__(self):
         """
@@ -78,8 +60,22 @@ class Manager:
             标题
             年份
         """
+        self.finded_urls = list()
+        self.finded_movie_ids = list()
 
-        self.firt_run()
+        self.url_task = deque()
+        self.movie_task = deque()
+
+        self.comment_queue = deque()
+
+        self.comment_ids = deque()
+
+        self.last_time = int(time.time())
+
+        # 第一次运行
+        index_url = 'https://movie.douban.com/'
+        self.finded_urls.append(index_url)
+        self.url_task.append(index_url)
 
     # def read_data(self):
     #     if os.path.exists('data.json'):
@@ -99,40 +95,39 @@ class Manager:
     #         return True
     #     return False
 
-    def firt_run(self):
-        self.page_process('https://movie.douban.com')
-
     def save_data(self):
-        self.last_time = int(time())
+        print('保存配置中')
+        self.last_time = int(time.time())
         with open('data', 'wb') as datafile:
-            pickle.dump(self._instance, datafile)
+            print(self.finded_urls)
+            pickle.dump(self, datafile)
 
-    def running(self):
-        while True:
-            try:
-                url = self.url_task.get(block=True, timeout=1)
-            except Exception as e:
-                pass
-            else:
-                print(url)
-                self.page_process(url)
+    # def running(self):
+    #     while True:
+    #         try:
+    #             url = self.url_task.popleft(block=True, timeout=1)
+    #         except Exception as e:
+    #             pass
+    #         else:
+    #             print(url)
+    #             self.page_process(url)
 
-            try:
-                movie_id = self.movie_task.get(block=True, timeout=1)
-            except Exception as e:
-                pass
-            else:
-                print(movie_id)
-                movie = MoveFinder(movie_id)
-                movie.process()
+    #         try:
+    #             movie_id = self.movie_task.popleft(block=True, timeout=1)
+    #         except Exception as e:
+    #             pass
+    #         else:
+    #             print(movie_id)
+    #             movie = MoveFinder(movie_id)
+    #             movie.process()
 
-            if time() - self.last_time > 1:
-                self.save_data()
+    #         if time.time() - self.last_time > 5:
+    #             self.save_data()
 
-            print('sleep')
-            print(self.url_task.qsize())
-            print(self.url_task.qsize())
-            time.sleep(1)
+    #         print('sleep')
+    #         # print(self.url_task.qsize())
+    #         # print(self.url_task.qsize())
+    #         time.sleep(1)
 
     def page_process(self, url):
         response = self.get_response(url)
@@ -145,7 +140,7 @@ class Manager:
         for url in result:
             if url not in self.finded_urls:
                 self.finded_urls.append(url)
-                self.url_task.put(url)
+                self.url_task.append(url)
 
         movie_pattern = r'https://movie.douban.com/subject/(.*?)/'
         result = re.findall(movie_pattern, text)
@@ -153,7 +148,7 @@ class Manager:
         for movie_id in result:
             if url not in self.finded_movie_ids:
                 self.finded_movie_ids.append(movie_id)
-                self.url_task.put(movie_id)
+                self.url_task.append(movie_id)
 
         return text
 
@@ -187,5 +182,12 @@ class MoveFinder:
             Manager().comment_ids.put('')
 
 
-manager = Manager()
+if os.path.exists('data'):
+    print('读取记录文件')
+    with open('data', 'rb') as datafile:
+        manager = pickle.load(datafile)
+        print(manager.finded_urls)
+else:
+    manager = Manager()
+
 manager.running()
