@@ -6,6 +6,8 @@ import csv
 import threading
 from queue import Queue
 import json
+import pickle
+import time
 
 from bs4 import BeautifulSoup
 
@@ -45,13 +47,20 @@ class Manager:
 
     comment_ids = Queue()
 
+    last_time = int(time())
+
     _instance_lock = threading.Lock()
 
     def __new__(cls, *args, **kwargs):
         if not hasattr(cls, '_instance'):
             with cls._instance_lock:
                 if not hasattr(cls, '_instance'):
-                    cls._instance = super().__new__(cls)
+                    if os.path.exists('data'):
+                        print('存在配置文件')
+                        with open('data', 'rb') as datafile:
+                            cls._instance = pickle.load(datafile)
+                    else:
+                        cls._instance = super().__new__(cls)
             return cls._instance
 
     def __init__(self):
@@ -70,43 +79,60 @@ class Manager:
             年份
         """
 
-        if not self.read_data():
-            self.firt_run()
+        self.firt_run()
 
-    def read_data(self):
-        if os.path.exists('data.json'):
-            with open('data.json', 'r') as datafile:
-                data = json.loads(datafile.read())
-                self.finded_urls = data['finded_urls']
-                self.finded_movie_ids = data['finded_movie_ids']
+    # def read_data(self):
+    #     if os.path.exists('data.json'):
+    #         with open('data.json', 'r') as datafile:
+    #             import ipdb
 
-                self.url_task = data['url_task']
-                self.movie_task = data['movie_task']
+    #             ipdb.set_trace()
+    #             data = json.loads(datafile.read())
+    #             self.finded_urls = data['finded_urls']
+    #             self.finded_movie_ids = data['finded_movie_ids']
 
-                self.comment_queue = data['comment_queue']
-                self.comment_ids = data['comment_ids']
-            return True
+    #             self.url_task = data['url_task']
+    #             self.movie_task = data['movie_task']
 
-        return False
+    #             self.comment_queue = data['comment_queue']
+    #             self.comment_ids = data['comment_ids']
+    #         return True
+    #     return False
 
     def firt_run(self):
         self.page_process('https://movie.douban.com')
 
     def save_data(self):
-        if os.path.exists('urls.csv'):
-            with open('urls.csv', 'w') as csvfile:
-                writer = csv.writer(csvfile)
+        self.last_time = int(time())
+        with open('data', 'wb') as datafile:
+            pickle.dump(self._instance, datafile)
 
-    def runing(self):
+    def running(self):
         while True:
-            url = self.url_task.get()
-            if url:
+            try:
+                url = self.url_task.get(block=True, timeout=1)
+            except Exception as e:
+                pass
+            else:
+                print(url)
                 self.page_process(url)
 
-            if len(self.movie_queue) > 0:
-                movie_id = self.movie_queue.pop()
+            try:
+                movie_id = self.movie_task.get(block=True, timeout=1)
+            except Exception as e:
+                pass
+            else:
+                print(movie_id)
                 movie = MoveFinder(movie_id)
                 movie.process()
+
+            if time() - self.last_time > 1:
+                self.save_data()
+
+            print('sleep')
+            print(self.url_task.qsize())
+            print(self.url_task.qsize())
+            time.sleep(1)
 
     def page_process(self, url):
         response = self.get_response(url)
@@ -125,9 +151,9 @@ class Manager:
         result = re.findall(movie_pattern, text)
 
         for movie_id in result:
-            if url not in self.finded_urls:
-                self.finded_urls.append(url)
-                self.url_task.put(url)
+            if url not in self.finded_movie_ids:
+                self.finded_movie_ids.append(movie_id)
+                self.url_task.put(movie_id)
 
         return text
 
