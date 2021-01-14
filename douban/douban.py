@@ -107,24 +107,6 @@ class Manager:
             self.finded_urls.append(index_url)
             self.url_task.append(index_url)
 
-    # def read_data(self):
-    #     if os.path.exists('data.json'):
-    #         with open('data.json', 'r') as datafile:
-    #             import ipdb
-
-    #             ipdb.set_trace()
-    #             data = json.loads(datafile.read())
-    #             self.finded_urls = data['finded_urls']
-    #             self.finded_movie_ids = data['finded_movie_ids']
-
-    #             self.url_task = data['url_task']
-    #             self.movie_task = data['movie_task']
-
-    #             self.comment_queue = data['comment_queue']
-    #             self.comment_ids = data['comment_ids']
-    #         return True
-    #     return False
-
     async def save_data(self):
         print('开始保存配置')
         await worker.execute_until_finished()
