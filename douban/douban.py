@@ -178,10 +178,29 @@ class MoveFinder:
         将提取出得url加入任务队列
         """
         page_text = await Manager().page_process(self.url)
-        self.title = ''
-        self.year = None
-        self.score = None
-        self.comment_amount = None
+        title_pattern = r'<span property="v:itemreviewed">(.*?)</span>'
+
+        result = re.search(title_pattern, page_text)
+        self.title = result.group(1)
+
+        year_pattern = r'<span class="year">\((.*?)\)</span>'
+        result = re.search(year_pattern, page_text)
+
+        self.year = result.group(1)
+
+        score_pattern = (
+            r'<strong class="ll rating_num" property="v:average">(.*?)</strong>'
+        )
+        result = re.search(score_pattern, page_text)
+
+        self.score = result.group(1)
+
+        comment_pattern = (
+            r'<span class="pl">\( <a href="reviews">全部 (.*?) 条</a> \)</span>'
+        )
+        result = re.search(comment_pattern, page_text)
+
+        self.comment_amount = result.group(1)
 
     def get_comments(self, url):
         page_text = Manager().page_process(url)
