@@ -186,29 +186,28 @@ class MoveFinder:
         year_pattern = r'<span class="year">\((.*?)\)</span>'
         result = re.search(year_pattern, page_text)
 
-        self.year = result.group(1)
+        self.year = int(result.group(1))
 
         score_pattern = (
             r'<strong class="ll rating_num" property="v:average">(.*?)</strong>'
         )
         result = re.search(score_pattern, page_text)
 
-        self.score = result.group(1)
+        self.score = int(result.group(1))
 
         comment_pattern = (
             r'<span class="pl">\( <a href="reviews">全部 (.*?) 条</a> \)</span>'
         )
         result = re.search(comment_pattern, page_text)
 
-        self.comment_amount = result.group(1)
+        self.comment_amount = int(result.group(1))
+
+        self.get_comments()
 
     def get_comments(self, url):
-        page_text = Manager().page_process(url)
-        for page in range(0, 10000, 20):
-            page_text = Manager().page_process(page)
-            pattern = r'https://movie.douban.com/review/(.*?)/'
-            result = re.search(pattern, page_text)
-            Manager().comment_ids.put('')
+        for start in range(0, self.comment_amount, 20):
+            url = 'https://movie.douban.com/subject/35096844/reviews?start=%s' % start
+            Manager().comment_ids.put(url)
 
 
 async def main():
