@@ -1,8 +1,11 @@
 import os
-import requests
+
+# import httpx
 import random
 import re
 import csv
+import httpx
+import asyncio
 
 # import threading
 from collections import deque
@@ -39,13 +42,13 @@ agents = [
 
 
 class Manager:
-    _instance_lock = threading.Lock()
+    inited = False
 
     def __new__(cls, *args, **kwargs):
         if not hasattr(cls, '_instance'):
-            with cls._instance_lock:
-                if not hasattr(cls, '_instance'):
-                    cls._instance = super().__new__(cls)
+            # with cls._instance_lock:
+            if not hasattr(cls, '_instance'):
+                cls._instance = super().__new__(cls)
         return cls._instance
 
     def __init__(self):
@@ -63,22 +66,25 @@ class Manager:
             标题
             年份
         """
-        self.finded_urls = list()
-        self.finded_movie_ids = list()
+        if not self.inited:
+            self.inited = True
 
-        self.url_task = deque()
-        self.movie_task = deque()
+            self.finded_urls = list()
+            self.finded_movie_ids = list()
 
-        self.comment_queue = deque()
+            self.url_task = deque()
+            self.movie_task = deque()
 
-        self.comment_ids = deque()
+            self.comment_queue = deque()
 
-        self.last_time = int(time.time())
+            self.comment_ids = deque()
 
-        # 第一次运行
-        index_url = 'https://movie.douban.com/'
-        self.finded_urls.append(index_url)
-        self.url_task.append(index_url)
+            self.last_time = int(time.time())
+
+            # 第一次运行
+            index_url = 'https://movie.douban.com/'
+            self.finded_urls.append(index_url)
+            self.url_task.append(index_url)
 
     # def read_data(self):
     #     if os.path.exists('data.json'):
@@ -102,40 +108,32 @@ class Manager:
         print('保存配置中')
         self.last_time = int(time.time())
         with open('data', 'wb') as datafile:
-            print(self.finded_urls)
+            # print(self.finded_urls)
             pickle.dump(self, datafile)
 
-    # def running(self):
-    #     while True:
-    #         try:
-    #             url = self.url_task.popleft(block=True, timeout=1)
-    #         except Exception as e:
-    #             pass
-    #         else:
-    #             print(url)
-    #             self.page_process(url)
+    async def running(self):
+        while True:
+            if len(self.url_task) > 0:
+                url = self.url_task.popleft()
+                await self.page_process(url)
 
-    #         try:
-    #             movie_id = self.movie_task.popleft(block=True, timeout=1)
-    #         except Exception as e:
-    #             pass
-    #         else:
-    #             print(movie_id)
-    #             movie = MoveFinder(movie_id)
-    #             movie.process()
+            if len(self.movie_task) > 0:
+                movie_id = self.movie_task.popleft()
+                movie = MoveFinder(movie_id)
+                await movie.process()
 
-    #         if time.time() - self.last_time > 5:
-    #             self.save_data()
+            if time.time() - self.last_time > 5:
+                self.save_data()
 
-    #         print('sleep')
-    #         # print(self.url_task.qsize())
-    #         # print(self.url_task.qsize())
-    #         time.sleep(1)
+            # print('gogogo')
+            time.sleep(1)
+            print('len(self.finded_urls)')
+            print(len(self.finded_urls))
 
-    def page_process(self, url):
-        response = self.get_response(url)
+    async def page_process(self, url):
+        response = await self.get_response(url)
         text = response.text
-        url_pattern = r'"https://movie.douban.com/.*?"'
+        url_pattern = r'"(https://movie.douban.com/.*?)"'
         # pattern = r'https://movie.douban.com/subject/(.*?)/'
         # result = re.search(url_pattern, text)
         result = re.findall(url_pattern, text)
@@ -151,13 +149,16 @@ class Manager:
         for movie_id in result:
             if url not in self.finded_movie_ids:
                 self.finded_movie_ids.append(movie_id)
-                self.url_task.append(movie_id)
+                self.movie_task.append(movie_id)
 
         return text
 
-    def get_response(self, url):
+    async def get_response(self, url):
         headers = {'User-Agent': random.choice(agents)}
-        return requests.get('https://movie.douban.com', headers=headers)
+        async with httpx.AsyncClient() as client:
+            print(url)
+            r = await client.get(url, headers=headers)
+        return r
 
 
 class MoveFinder:
@@ -165,12 +166,12 @@ class MoveFinder:
         self.id = id
         self.url = 'https://movie.douban.com/subject/%s/' % id
 
-    def process(self):
+    async def process(self):
         """
         遍历影评所有页面
         将提取出得url加入任务队列
         """
-        page_text = Manager().page_process(self.url)
+        page_text = await Manager().page_process(self.url)
         self.title = ''
         self.year = None
         self.score = None
@@ -185,12 +186,17 @@ class MoveFinder:
             Manager().comment_ids.put('')
 
 
-if os.path.exists('data'):
-    print('读取记录文件')
-    with open('data', 'rb') as datafile:
-        manager = pickle.load(datafile)
-        print(manager.finded_urls)
-else:
-    manager = Manager()
+async def main():
+    # if os.path.exists('data'):
+    #     print('读取记录文件')
+    #     with open('data', 'rb') as datafile:
+    #         manager = pickle.load(datafile)
+    #         print(manager.finded_urls)
+    # else:
+    #     manager = Manager()
 
-manager.running()
+    manager = Manager()
+    await manager.running()
+
+
+asyncio.run(main())
