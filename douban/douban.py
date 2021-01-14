@@ -41,6 +41,27 @@ agents = [
 # http://httpbin.org/get
 
 
+class Worker:
+    def __init__(self):
+        self.futures = []
+
+    def __len__(self):
+        return len(self.futures)
+
+    def add_future(self, future):
+        self.futures.append(future)
+
+    async def execute(self, max_task_amount=10):
+        await asyncio.gather(*self.futures[:max_task_amount])
+        self.futures = self.futures[max_task_amount:]
+
+    async def execute_until_finished(self):
+        await self.execute(max_task_amount=len(self))
+
+
+worker = Worker()
+
+
 class Manager:
     inited = False
 
@@ -81,8 +102,6 @@ class Manager:
 
             self.last_time = int(time.time())
 
-            self.futures = []
-
             # 第一次运行
             index_url = 'https://movie.douban.com/'
             self.finded_urls.append(index_url)
@@ -106,38 +125,33 @@ class Manager:
     #         return True
     #     return False
 
-    def save_data(self):
-        print('保存配置中')
+    async def save_data(self):
+        print('开始保存配置')
+        await worker.execute_until_finished()
         self.last_time = int(time.time())
         with open('data', 'wb') as datafile:
             pickle.dump(self, datafile)
-
-    def add_future(self, future):
-        self.futures.append(future)
-
-    async def execute(self, max_task_amount=10):
-        await asyncio.gather(*self.futures[:max_task_amount])
-        self.futures = self.futures[max_task_amount:]
+        print('保存配置完成')
 
     async def running(self):
         while True:
-            while len(self.url_task) > 0:
+            while len(self.url_task) > 0 and len(worker) < 100:
                 url = self.url_task.popleft()
-                self.add_future(self.page_process(url))
+                worker.add_future(self.page_process(url))
 
-            while len(self.movie_task) > 0:
+            while len(self.movie_task) > 0 and len(worker) < 100:
                 movie_id = self.movie_task.popleft()
                 movie = MoveFinder(movie_id)
-                self.add_future(movie.process())
+                worker.add_future(movie.process())
 
             if time.time() - self.last_time > 5:
-                self.save_data()
+                await self.save_data()
 
-            await self.execute()
+            await worker.execute()
 
             time.sleep(1)
-            print('len(self.finded_urls)')
-            print(len(self.finded_urls))
+            print('len(self.finded_movie_ids)')
+            print(len(self.finded_movie_ids))
 
     async def page_process(self, url):
         response = await self.get_response(url)
@@ -166,8 +180,8 @@ class Manager:
         headers = {'User-Agent': random.choice(agents)}
         async with httpx.AsyncClient() as client:
             r = await client.get(url, headers=headers)
-            print(url)
-            print(r.status_code)
+            # print(url)
+            # print(r.status_code)
         return r
 
 
