@@ -81,6 +81,8 @@ class Manager:
 
             self.last_time = int(time.time())
 
+            self.futures = []
+
             # 第一次运行
             index_url = 'https://movie.douban.com/'
             self.finded_urls.append(index_url)
@@ -108,24 +110,31 @@ class Manager:
         print('保存配置中')
         self.last_time = int(time.time())
         with open('data', 'wb') as datafile:
-            # print(self.finded_urls)
             pickle.dump(self, datafile)
+
+    def add_future(self, future):
+        self.futures.append(future)
+
+    async def execute(self, max_task_amount=10):
+        await asyncio.gather(*self.futures[:max_task_amount])
+        self.futures = self.futures[max_task_amount:]
 
     async def running(self):
         while True:
-            if len(self.url_task) > 0:
+            while len(self.url_task) > 0:
                 url = self.url_task.popleft()
-                await self.page_process(url)
+                self.add_future(self.page_process(url))
 
-            if len(self.movie_task) > 0:
+            while len(self.movie_task) > 0:
                 movie_id = self.movie_task.popleft()
                 movie = MoveFinder(movie_id)
-                await movie.process()
+                self.add_future(movie.process())
 
             if time.time() - self.last_time > 5:
                 self.save_data()
 
-            # print('gogogo')
+            await self.execute()
+
             time.sleep(1)
             print('len(self.finded_urls)')
             print(len(self.finded_urls))
@@ -156,8 +165,9 @@ class Manager:
     async def get_response(self, url):
         headers = {'User-Agent': random.choice(agents)}
         async with httpx.AsyncClient() as client:
-            print(url)
             r = await client.get(url, headers=headers)
+            print(url)
+            print(r.status_code)
         return r
 
 
