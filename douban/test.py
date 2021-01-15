@@ -63,20 +63,26 @@ import requests
 import re
 
 headers = {'User-Agent': random.choice(agents)}
+# response = requests.get(
+#     'https://movie.douban.com/subject/35096844/?from=showing', headers=headers
+# )
+
+# url_pattern = r'<span property="v:itemreviewed">(.*?)</span>'
+# result = re.search(url_pattern, response.text)
+
+# url_pattern = r'<span class="year">\((.*?)\)</span>'
+# result = re.search(url_pattern, response.text)
+
+
+# url_pattern = r'<span class="pl">\( <a href="reviews">全部 (.*?) 条</a> \)</span>'
+# result = re.search(url_pattern, response.text)
+
 response = requests.get(
-    'https://movie.douban.com/subject/35096844/?from=showing', headers=headers
+    'https://movie.douban.com/subject/26671361/reviews', headers=headers
 )
 
-url_pattern = r'<span property="v:itemreviewed">(.*?)</span>'
-result = re.search(url_pattern, response.text)
-
-url_pattern = r'<span class="year">\((.*?)\)</span>'
-result = re.search(url_pattern, response.text)
-
-
-url_pattern = r'<span class="pl">\( <a href="reviews">全部 (.*?) 条</a> \)</span>'
-result = re.search(url_pattern, response.text)
-
+url_pattern = r'https://movie.douban.com/review/([0-9]*?)/'
+result = re.findall(url_pattern, response.text)
 
 import ipdb
 

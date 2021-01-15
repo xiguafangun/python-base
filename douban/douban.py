@@ -235,7 +235,10 @@ class CommentPage:
         self.url = 'https://movie.douban.com/subject/%s/reviews?start=%s' % (id, page)
 
     async def process(self):
-        Manager().comment_ids.put(self.id)
+        page_text = await Manager().page_process(self.url)
+        url_pattern = r'https://movie.douban.com/review/([0-9]*?)/'
+        result = re.findall(url_pattern, page_text)
+        Manager().comment_ids.append(*result)
 
 
 class CommentDetail:
@@ -244,7 +247,10 @@ class CommentDetail:
         self.url = 'https://movie.douban.com/review/%s/' % id
 
     async def process(self):
-        Manager().handle_result()
+        page_text = await Manager().page_process(self.url)
+        text_pattern = r'https://movie.douban.com/review/([0-9]*?)/'
+        result = re.findall(url_pattern, page_text)
+        Manager().comment_ids.append(*result)
 
 
 async def main():
