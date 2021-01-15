@@ -100,6 +100,12 @@ class Manager:
 
             self.comment_ids = deque()
 
+            self.comment_pages = deque()
+
+            self.movie_infos = dict()
+
+            self.cache = list()
+
             self.last_time = int(time.time())
 
             # 第一次运行
@@ -166,6 +172,11 @@ class Manager:
             # print(r.status_code)
         return r
 
+    def handle_result(self, title, year, score, comment):
+        self.cache.append((title, year, score, comment))
+        if len(self.cache) >= 100:
+            pass
+
 
 class MoveFinder:
     def __init__(self, id):
@@ -202,12 +213,38 @@ class MoveFinder:
 
         self.comment_amount = int(result.group(1))
 
+        Manager().movie_infos[self.id] = {
+            'title': self.title,
+            'year': self.year,
+            'score': self.score,
+            'comment_amount': self.comment_amount,
+        }
+
         self.get_comments()
 
     def get_comments(self, url):
         for start in range(0, self.comment_amount, 20):
-            url = 'https://movie.douban.com/subject/35096844/reviews?start=%s' % start
-            Manager().comment_ids.put(url)
+            # url = 'https://movie.douban.com/subject/35096844/reviews?start=%s' % start
+            Manager().comment_pages.put((self.id, start))
+
+
+class CommentPage:
+    def __init__(self, id, page):
+        self.id = id
+        self.page = page
+        self.url = 'https://movie.douban.com/subject/%s/reviews?start=%s' % (id, page)
+
+    async def process(self):
+        Manager().comment_ids.put(self.id)
+
+
+class CommentDetail:
+    def __init__(self, id):
+        self.id = id
+        self.url = 'https://movie.douban.com/review/%s/' % id
+
+    async def process(self):
+        Manager().handle_result()
 
 
 async def main():
