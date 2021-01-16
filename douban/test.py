@@ -12,21 +12,20 @@
 
 
 # class Manager:
-#     # _instance_lock = threading.Lock()
-#     abc = False
+#     # abc = False
 
 #     def __new__(cls, *args, **kwargs):
-#         return '213123'
+#         # return '213123'
 #         if not hasattr(cls, '_instance'):
 #             # with cls._instance_lock:
 #             if not hasattr(cls, '_instance'):
 #                 cls._instance = super().__new__(cls)
 #         return cls._instance
 
-#     def __init__(self):
-#         print(self.abc)
-#         self.abc = True
-#         print('wfwefwef')
+# def __init__(self):
+#     print(self.abc)
+#     self.abc = True
+#     print('wfwefwef')
 
 
 # Manager()
@@ -77,12 +76,27 @@ headers = {'User-Agent': random.choice(agents)}
 # url_pattern = r'<span class="pl">\( <a href="reviews">全部 (.*?) 条</a> \)</span>'
 # result = re.search(url_pattern, response.text)
 
-response = requests.get(
-    'https://movie.douban.com/subject/26671361/reviews', headers=headers
-)
+# response = requests.get(
+#     'https://movie.douban.com/subject/26671361/reviews', headers=headers
+# )
 
-url_pattern = r'https://movie.douban.com/review/([0-9]*?)/'
-result = re.findall(url_pattern, response.text)
+# url_pattern = r'https://movie.douban.com/review/([0-9]*?)/'
+# result = re.findall(url_pattern, response.text)
+
+
+response = requests.get('https://movie.douban.com/review/8015528/', headers=headers)
+
+# url_pattern = r'<div class="review-content clearfix"(?:.|\n)*?(<p>((.|\n)*?)</p>.*?)*(?:.|\n)*?</div>'
+# result = re.search(url_pattern, response.text)
+
+from bs4 import BeautifulSoup
+
+soup = BeautifulSoup(response.text)
+
+abc = soup.find(name='div', attrs={"class": "review-content"})
+abc = abc.find_all(name='p')
+
+content = ''.join([a.text for a in abc])
 
 import ipdb
 
