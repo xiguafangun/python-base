@@ -38,6 +38,7 @@ agents = [
     "Mozilla/5.0 (X11; Linux x86_64; rv:76.0) Gecko/20100101 Firefox/76.0",
 ]
 
+
 # http://httpbin.org/get
 
 
@@ -121,21 +122,25 @@ class Manager:
 
     async def running(self):
         while True:
-            while len(self.url_task) > 0 and len(worker) < 10:
+            # while len(self.url_task) > 0 and len(worker) < 10:
+            if len(self.url_task) > 0:
                 url = self.url_task.popleft()
                 worker.add_future(self.page_process(url))
 
-            while len(self.movie_task) > 0 and len(worker) < 20:
+            # while len(self.movie_task) > 0 and len(worker) < 20:
+            if len(self.movie_task) > 0:
                 movie_id = self.movie_task.popleft()
                 movie = MoveFinder(movie_id)
                 worker.add_future(movie.process())
 
-            while len(self.comment_pages) > 0 and len(worker) < 20:
+            # while len(self.comment_pages) > 0 and len(worker) < 20:
+            if len(self.comment_pages) > 0:
                 comment_page_id, start = self.comment_pages.popleft()
                 comment_page = CommentPage(comment_page_id, start)
                 worker.add_future(comment_page.process())
 
-            while len(self.comment_ids) > 0 and len(worker) < 30:
+            # while len(self.comment_ids) > 0 and len(worker) < 30:
+            if len(self.comment_ids) > 0:
                 comment_id, movie_id = self.comment_ids.popleft()
                 comment = CommentDetail(comment_id, movie_id)
                 worker.add_future(comment.process())
@@ -143,11 +148,17 @@ class Manager:
             if time.time() - self.last_time > 5:
                 await self.save_data()
 
+            print('worker_1:', len(worker))
+
             await worker.execute()
 
             time.sleep(1)
             print('len(self.finded_movie_ids)')
-            print(len(self.finded_movie_ids))
+            print('url_task:', len(self.url_task))
+            print('movie_task:', len(self.movie_task))
+            print('comment_pages:', len(self.comment_pages))
+            print('comment_ids:', len(self.comment_ids))
+            print('worker_2:', len(worker))
 
     async def page_process(self, url):
         response = await self.get_response(url)
@@ -174,21 +185,31 @@ class Manager:
 
     async def get_response(self, url):
         headers = {'User-Agent': random.choice(agents)}
-        async with httpx.AsyncClient() as client:
-            r = await client.get(url, headers=headers)
+        async with httpx.AsyncClient(proxies=proxies) as client:
+            try:
+                r = await client.get(url, headers=headers)
+            except Exception as e:
+                print('error')
             # print(url)
             # print(r.status_code)
+        print(r.status_code)
         return r
 
-    def handle_result(self, title, year, score, comment):
-        self.cache.append((title, year, score, comment))
+    def handle_result(self, title, year, score, comment, comment_amount):
+        self.cache.append((title, year, score, comment, comment_amount))
         print('handle_result')
-        if len(self.cache) >= 100:
-            with open('comments', 'w') as comment_file:
+        if len(self.cache) >= 1:
+            with open('comments', 'a', encoding='utf-8') as comment_file:
                 spamwriter = csv.writer(comment_file)
                 spamwriter.writerows(self.cache)
 
             self.cache = []
+
+
+proxies = {
+    "http://": "http://127.0.0.1:8787",
+    "https://": "http://127.0.0.1:8787",
+}
 
 
 class MoveFinder:
@@ -202,6 +223,7 @@ class MoveFinder:
         将提取出得url加入任务队列
         """
         page_text = await Manager().page_process(self.url)
+
         title_pattern = r'<span property="v:itemreviewed">(.*?)</span>'
 
         result = re.search(title_pattern, page_text)
