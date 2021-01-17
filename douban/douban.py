@@ -96,11 +96,9 @@ class Manager:
             self.url_task = deque()
             self.movie_task = deque()
 
-            self.comment_queue = deque()
+            self.comment_pages = deque()
 
             self.comment_ids = deque()
-
-            self.comment_pages = deque()
 
             self.movie_infos = dict()
 
@@ -123,14 +121,24 @@ class Manager:
 
     async def running(self):
         while True:
-            while len(self.url_task) > 0 and len(worker) < 100:
+            while len(self.url_task) > 0 and len(worker) < 10:
                 url = self.url_task.popleft()
                 worker.add_future(self.page_process(url))
 
-            while len(self.movie_task) > 0 and len(worker) < 100:
+            while len(self.movie_task) > 0 and len(worker) < 20:
                 movie_id = self.movie_task.popleft()
                 movie = MoveFinder(movie_id)
                 worker.add_future(movie.process())
+
+            while len(self.comment_pages) > 0 and len(worker) < 20:
+                comment_page_id, start = self.comment_pages.popleft()
+                comment_page = CommentPage(comment_page_id, start)
+                worker.add_future(comment_page.process())
+
+            while len(self.comment_ids) > 0 and len(worker) < 30:
+                comment_id, movie_id = self.comment_ids.popleft()
+                comment = CommentDetail(comment_id, finded)
+                worker.add_future(comment_page.process())
 
             if time.time() - self.last_time > 5:
                 await self.save_data()
@@ -174,11 +182,12 @@ class Manager:
 
     def handle_result(self, title, year, score, comment):
         self.cache.append((title, year, score, comment))
+        print('handle_result')
         if len(self.cache) >= 100:
             with open('comments', 'w') as comment_file:
                 spamwriter = csv.writer(comment_file)
                 spamwriter.writerows(self.cache)
-            
+
             self.cache = []
 
 
@@ -208,7 +217,10 @@ class MoveFinder:
         )
         result = re.search(score_pattern, page_text)
 
-        self.score = int(result.group(1))
+        if result.group(1) != '':
+            self.score = float(result.group(1))
+        else:
+            self.score = ''
 
         comment_pattern = (
             r'<span class="pl">\( <a href="reviews">全部 (.*?) 条</a> \)</span>'
@@ -226,10 +238,10 @@ class MoveFinder:
 
         self.get_comments()
 
-    def get_comments(self, url):
+    def get_comments(self):
         for start in range(0, self.comment_amount, 20):
             # url = 'https://movie.douban.com/subject/35096844/reviews?start=%s' % start
-            Manager().comment_pages.put((self.id, start))
+            Manager().comment_pages.append((self.id, start))
 
 
 class CommentPage:
@@ -242,7 +254,7 @@ class CommentPage:
         page_text = await Manager().page_process(self.url)
         url_pattern = r'https://movie.douban.com/review/([0-9]*?)/'
         result = re.findall(url_pattern, page_text)
-        Manager().comment_ids.append(*result)
+        Manager().comment_ids += [(finded, self.id) for finded in result]
 
 
 class CommentDetail:
