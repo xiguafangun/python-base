@@ -137,8 +137,8 @@ class Manager:
 
             while len(self.comment_ids) > 0 and len(worker) < 30:
                 comment_id, movie_id = self.comment_ids.popleft()
-                comment = CommentDetail(comment_id, finded)
-                worker.add_future(comment_page.process())
+                comment = CommentDetail(comment_id, movie_id)
+                worker.add_future(comment.process())
 
             if time.time() - self.last_time > 5:
                 await self.save_data()
