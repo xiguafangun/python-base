@@ -1,3 +1,4 @@
+import logging
 import os
 
 # import httpx
@@ -107,10 +108,21 @@ class Manager:
 
             self.last_time = int(time.time())
 
+            self.handlers = dict()
+
+            self.tasks = dict()
+
             # 第一次运行
             index_url = 'https://movie.douban.com/'
             self.finded_urls.append(index_url)
-            self.url_task.append(index_url)
+            # self.url_task.append(index_url)
+
+            # self.add_task('')
+
+    def add_task(self, name, data, priority=0):
+        if priority not in self.tasks.keys():
+            self.tasks[priority] = []
+        self.tasks[priority].append((name, data))
 
     async def save_data(self):
         print('开始保存配置')
@@ -122,28 +134,46 @@ class Manager:
 
     async def running(self):
         while True:
-            # while len(self.url_task) > 0 and len(worker) < 10:
-            if len(self.url_task) > 0:
-                url = self.url_task.popleft()
-                worker.add_future(self.page_process(url))
+            prioritys = list(self.tasks.keys())
+            prioritys.sort(reverse=True)
 
-            # while len(self.movie_task) > 0 and len(worker) < 20:
-            if len(self.movie_task) > 0:
-                movie_id = self.movie_task.popleft()
-                movie = MoveFinder(movie_id)
-                worker.add_future(movie.process())
+            task_amount = 0
+            for priority in prioritys:
+                if len(self.tasks[priority]) > 0:
+                    task_amount += len(self.tasks[priority])
+                    name, data = self.tasks[priority].pop(0)
 
-            # while len(self.comment_pages) > 0 and len(worker) < 20:
-            if len(self.comment_pages) > 0:
+                    handler = self.handlers.get(name)
+                    if handler:
+                        handler(data)
+            if time.time() - self.last_time > 5:
+                await self.save_data()
+
+            print('task_amount:', task_amount)
+
+            await worker.execute()
+
+            time.sleep(1)
+
+        while True:
+            while len(self.comment_ids) > 0 and len(worker) < 20:
+                comment_id, movie_id = self.comment_ids.popleft()
+                comment = CommentDetail(comment_id, movie_id)
+                worker.add_future(comment.process())
+
+            while len(self.comment_pages) > 0 and len(worker) < 20:
                 comment_page_id, start = self.comment_pages.popleft()
                 comment_page = CommentPage(comment_page_id, start)
                 worker.add_future(comment_page.process())
 
-            # while len(self.comment_ids) > 0 and len(worker) < 30:
-            if len(self.comment_ids) > 0:
-                comment_id, movie_id = self.comment_ids.popleft()
-                comment = CommentDetail(comment_id, movie_id)
-                worker.add_future(comment.process())
+            while len(self.movie_task) > 0 and len(worker) < 20:
+                movie_id = self.movie_task.popleft()
+                movie = MovieFinder(movie_id)
+                worker.add_future(movie.process())
+
+            while len(self.url_task) > 0 and len(worker) < 20:
+                url = self.url_task.popleft()
+                worker.add_future(self.page_process(url))
 
             if time.time() - self.last_time > 5:
                 await self.save_data()
@@ -186,24 +216,24 @@ class Manager:
     async def get_response(self, url):
         headers = {'User-Agent': random.choice(agents)}
         async with httpx.AsyncClient(proxies=proxies) as client:
-            try:
-                r = await client.get(url, headers=headers)
-            except Exception as e:
-                print('error')
-            # print(url)
-            # print(r.status_code)
+            r = await client.get(url, headers=headers)
         print(r.status_code)
         return r
 
-    def handle_result(self, title, year, score, comment, comment_amount):
-        self.cache.append((title, year, score, comment, comment_amount))
+    def handle_result(self, title, year, score, comment_amount, comment):
+        self.cache.append((title, year, score, comment_amount, comment))
         print('handle_result')
         if len(self.cache) >= 1:
-            with open('comments', 'a', encoding='utf-8') as comment_file:
+            with open(
+                'comments.csv', 'a', newline='', encoding='utf-8-sig'
+            ) as comment_file:
                 spamwriter = csv.writer(comment_file)
                 spamwriter.writerows(self.cache)
 
             self.cache = []
+
+    def register_handler(self, name, handler):
+        self.handlers[name] = handler
 
 
 proxies = {
@@ -212,7 +242,7 @@ proxies = {
 }
 
 
-class MoveFinder:
+class MovieFinder:
     def __init__(self, id):
         self.id = id
         self.url = 'https://movie.douban.com/subject/%s/' % id
@@ -263,27 +293,32 @@ class MoveFinder:
     def get_comments(self):
         for start in range(0, self.comment_amount, 20):
             # url = 'https://movie.douban.com/subject/35096844/reviews?start=%s' % start
-            Manager().comment_pages.append((self.id, start))
+            # Manager().comment_pages.append((self.id, start))
+            Manager().add_task('comment_page', data={'id': self.id, 'start': start})
 
 
 class CommentPage:
-    def __init__(self, id, page):
-        self.id = id
-        self.page = page
-        self.url = 'https://movie.douban.com/subject/%s/reviews?start=%s' % (id, page)
+    def __init__(self, data):
+        self.id, self.start = data['id'], data['start']
+        self.url = 'https://movie.douban.com/subject/%s/reviews?start=%s' % (
+            self.id,
+            self.start,
+        )
 
     async def process(self):
         page_text = await Manager().page_process(self.url)
         url_pattern = r'https://movie.douban.com/review/([0-9]*?)/'
         result = re.findall(url_pattern, page_text)
-        Manager().comment_ids += [(finded, self.id) for finded in result]
+        for finded in result:
+            Manager().add_task(
+                'comment_detail', data={'id': finded, 'movie_id': self.id}
+            )
 
 
 class CommentDetail:
-    def __init__(self, id, movie_id):
-        self.id = id
-        self.movie_id = movie_id
-        self.url = 'https://movie.douban.com/review/%s/' % id
+    def __init__(self, data):
+        self.id, self.movie_id = data['id'], data['movie_id']
+        self.url = 'https://movie.douban.com/review/%s/' % self.id
 
     async def process(self):
         page_text = await Manager().page_process(self.url)
@@ -313,7 +348,11 @@ async def main():
     #     manager = Manager()
 
     manager = Manager()
+    manager.register_handler('movie_finder', MovieFinder)
+    manager.register_handler('comment_page', CommentPage)
+    manager.register_handler('comment_detail', CommentDetail)
     await manager.running()
 
 
+asyncio.log.logger.setLevel(logging.ERROR)
 asyncio.run(main())
