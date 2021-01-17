@@ -12,7 +12,7 @@ from collections import deque
 import pickle
 import time
 
-# from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup
 
 agents = [
     "Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6_8; en-us) AppleWebKit/534.50 (KHTML, like Gecko) Version/5.1 Safari/534.50",
@@ -175,7 +175,11 @@ class Manager:
     def handle_result(self, title, year, score, comment):
         self.cache.append((title, year, score, comment))
         if len(self.cache) >= 100:
-            pass
+            with open('comments', 'w') as comment_file:
+                spamwriter = csv.writer(comment_file)
+                spamwriter.writerows(self.cache)
+            
+            self.cache = []
 
 
 class MoveFinder:
@@ -242,15 +246,27 @@ class CommentPage:
 
 
 class CommentDetail:
-    def __init__(self, id):
+    def __init__(self, id, movie_id):
         self.id = id
+        self.movie_id = movie_id
         self.url = 'https://movie.douban.com/review/%s/' % id
 
     async def process(self):
         page_text = await Manager().page_process(self.url)
-        text_pattern = r'https://movie.douban.com/review/([0-9]*?)/'
-        result = re.findall(url_pattern, page_text)
-        Manager().comment_ids.append(*result)
+
+        soup = BeautifulSoup(page_text)
+
+        contents = soup.find(name='div', attrs={"class": "review-content"})
+        contents = contents.find_all(name='p')
+
+        content = ''.join([a.text for a in contents])
+        Manager().handle_result(
+            title=Manager().movie_infos[self.movie_id]['title'],
+            year=Manager().movie_infos[self.movie_id]['year'],
+            score=Manager().movie_infos[self.movie_id]['score'],
+            comment_amount=Manager().movie_infos[self.movie_id]['comment_amount'],
+            comment=content,
+        )
 
 
 async def main():
