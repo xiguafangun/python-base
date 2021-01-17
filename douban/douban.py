@@ -177,7 +177,7 @@ class Manager:
         result = re.findall(movie_pattern, text)
 
         for movie_id in result:
-            if url not in self.finded_movie_ids:
+            if movie_id not in self.finded_movie_ids:
                 self.finded_movie_ids.append(movie_id)
                 self.movie_task.append(movie_id)
 
