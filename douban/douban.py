@@ -50,11 +50,14 @@ class Worker:
     def __len__(self):
         return len(self.futures)
 
-    def add_future(self, future):
-        self.futures.append(future)
+    def add_future(self, future, priority):
+        self.futures.append((future, priority))
 
     async def execute(self, max_task_amount=10):
-        await asyncio.gather(*self.futures[:max_task_amount])
+        self.futures.sort(key=lambda x: x[1], reverse=True)
+
+        tasks = [task for task, _ in self.futures[:max_task_amount]]
+        await asyncio.gather(*tasks)
         self.futures = self.futures[max_task_amount:]
 
     async def execute_until_finished(self):
@@ -107,7 +110,7 @@ class Manager:
 
             self.handlers = dict()
 
-            self.tasks = dict()
+            self.tasks = list()
 
             # 第一次运行
             index_url = 'https://movie.douban.com/'
@@ -116,9 +119,7 @@ class Manager:
             self.add_task('page_process', index_url)
 
     def add_task(self, name, data, priority=0):
-        if priority not in self.tasks.keys():
-            self.tasks[priority] = []
-        self.tasks[priority].append((name, data))
+        self.tasks.append((name, data, priority))
 
     async def save_data(self):
         print('开始保存配置')
@@ -137,61 +138,24 @@ class Manager:
                 self.add_task(name, data, priority)
 
         while True:
-            prioritys = list(self.tasks.keys())
-            prioritys.sort(reverse=True)
-
-            task_amount = 0
-            for priority in prioritys:
-                if len(self.tasks[priority]) > 0:
-                    task_amount += len(self.tasks[priority])
-                    if len(self.tasks[priority]) == 0:
-                        continue
-                    for name, data in self.tasks[priority]:
-                        if name == 'page_process':
-                            worker.add_future(
-                                process(name, data, priority, self.page_process(data))
-                            )
-                        else:
-                            handler = self.handlers.get(name)
-                            if handler:
-                                worker.add_future(
-                                    process(
-                                        name, data, priority, handler(data).process()
-                                    )
-                                )
-                    self.tasks[priority] = []
+            for name, data, priority in self.tasks:
+                handler = self.handlers.get(name)
+                if handler:
+                    worker.add_future(
+                        process(name, data, priority, handler(data).process()),
+                        priority,
+                    )
+            self.tasks = []
 
             if time.time() - self.last_time > 10:
                 await self.save_data()
 
-            print('task_amount:', task_amount)
+            print('worker_amount:', len(worker))
+            print('finded_movie_ids:', len(self.finded_movie_ids))
 
             await worker.execute()
 
             time.sleep(1)
-
-    async def page_process(self, url):
-        response = await self.get_response(url)
-        text = response.text
-        url_pattern = r'"(https://movie.douban.com/.*?)"'
-        # pattern = r'https://movie.douban.com/subject/(.*?)/'
-        # result = re.search(url_pattern, text)
-        result = re.findall(url_pattern, text)
-
-        for url in result:
-            if url not in self.finded_urls:
-                self.finded_urls.append(url)
-                self.add_task('page_process', url)
-
-        movie_pattern = r'https://movie.douban.com/subject/(.*?)/'
-        result = re.findall(movie_pattern, text)
-
-        for movie_id in result:
-            if movie_id not in self.finded_movie_ids:
-                self.finded_movie_ids.append(movie_id)
-                self.add_task('movie_finder', movie_id, priority=3)
-
-        return text
 
     async def get_response(self, url):
         headers = {'User-Agent': random.choice(agents)}
@@ -216,7 +180,7 @@ class Manager:
     def handle_result(self, title, year, score, comment_amount, comment):
         self.cache.append((title, year, score, comment_amount, comment))
         print('handle_result')
-        if len(self.cache) >= 1:
+        if len(self.cache) >= 10:
             if not os.path.exists('comments.csv'):
                 with open(
                     'comments.csv', 'a', newline='', encoding='utf-8-sig'
@@ -254,6 +218,34 @@ class Manager:
 # }
 
 
+class PageProcess:
+    def __init__(self, url):
+        self.url = url
+
+    async def process(self):
+        response = await Manager().get_response(self.url)
+        text = response.text
+        url_pattern = r'"(https://movie.douban.com/.*?)"'
+        # pattern = r'https://movie.douban.com/subject/(.*?)/'
+        # result = re.search(url_pattern, text)
+        result = re.findall(url_pattern, text)
+
+        for url in result:
+            if url not in Manager().finded_urls:
+                Manager().finded_urls.append(url)
+                Manager().add_task('page_process', url)
+
+        movie_pattern = r'https://movie.douban.com/subject/(.*?)/'
+        result = re.findall(movie_pattern, text)
+
+        for movie_id in result:
+            if movie_id not in Manager().finded_movie_ids:
+                Manager().finded_movie_ids.append(movie_id)
+                Manager().add_task('movie_finder', movie_id, priority=3)
+
+        return text
+
+
 class MovieFinder:
     def __init__(self, id):
         self.id = id
@@ -264,7 +256,7 @@ class MovieFinder:
         遍历影评所有页面
         将提取出得url加入任务队列
         """
-        page_text = await Manager().page_process(self.url)
+        page_text = await PageProcess(self.url).process()
 
         title_pattern = r'<span property="v:itemreviewed">(.*?)</span>'
 
@@ -319,7 +311,7 @@ class CommentPage:
         )
 
     async def process(self):
-        page_text = await Manager().page_process(self.url)
+        page_text = await PageProcess(self.url).process()
         url_pattern = r'https://movie.douban.com/review/([0-9]*?)/'
         result = re.findall(url_pattern, page_text)
         for finded in set(result):
@@ -334,7 +326,7 @@ class CommentDetail:
         self.url = 'https://movie.douban.com/review/%s/' % self.id
 
     async def process(self):
-        page_text = await Manager().page_process(self.url)
+        page_text = await PageProcess(self.url).process()
 
         soup = BeautifulSoup(page_text, features='lxml')
 
@@ -362,6 +354,7 @@ async def main():
         manager = Manager()
 
     manager = Manager()
+    manager.register_handler('page_process', PageProcess)
     manager.register_handler('movie_finder', MovieFinder)
     manager.register_handler('comment_page', CommentPage)
     manager.register_handler('comment_detail', CommentDetail)
