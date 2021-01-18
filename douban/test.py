@@ -110,12 +110,31 @@
 #         print(row[1])
 
 
-import requests
+# import httpx
+# import asyncio
 
-response = requests.get(
-    'http://webapi.http.zhimacangku.com/getip?num=2&type=2&pro=&city=0&yys=0&port=1&time=1&ts=0&ys=0&cs=0&lb=1&sb=0&pb=45&mr=1&regions='
-)
 
-import ipdb
+# async def main():
+#     async with httpx.AsyncClient() as client:
+#         r = await client.get('https://www.baidu.com')
+#     print(r)
 
-ipdb.set_trace()
+
+# asyncio.run(main())
+
+import signal
+
+
+def stop(signum, frame):
+    print(213213123)
+
+
+signal.signal(signal.SIGTERM, stop)  # kill pid
+signal.signal(signal.SIGINT, stop)  # ctrl -c
+
+
+while True:
+    import time
+
+    print('sfwww')
+    time.sleep(1)

@@ -92,10 +92,10 @@ class Manager:
             标题
             年份
         """
-        self.last_time = int(time.time())
-
         if not self.inited:
             self.inited = True
+
+            self.running = False
 
             self.proxies = self.get_proxies()
 
@@ -129,7 +129,11 @@ class Manager:
             pickle.dump(self, datafile)
         print('保存配置完成')
 
-    async def running(self):
+    async def stop(self):
+        print('终止程序中')
+        self.running = False
+
+    async def run(self):
         async def process(name, data, priority, task):
             try:
                 return await task
@@ -137,25 +141,34 @@ class Manager:
                 print(e)
                 self.add_task(name, data, priority)
 
-        while True:
-            for name, data, priority in self.tasks:
+        self.running = True
+
+        while self.running:
+            self.tasks.sort(key=lambda x: x[2], reverse=True)
+
+            while len(worker) < 40 and len(self.tasks) > 0:
+                name, data, priority = self.tasks.pop(0)
                 handler = self.handlers.get(name)
                 if handler:
                     worker.add_future(
                         process(name, data, priority, handler(data).process()),
                         priority,
                     )
-            self.tasks = []
-
-            if time.time() - self.last_time > 10:
-                await self.save_data()
-
-            print('worker_amount:', len(worker))
+                else:
+                    raise Exception(name)
+            print('task_amount:', len(self.tasks))
             print('finded_movie_ids:', len(self.finded_movie_ids))
 
             await worker.execute()
 
+            if time.time() - self.last_time > 60:
+                # 每分钟保存一次数据
+                await self.save_data()
+
             time.sleep(1)
+
+        await self.save_data()
+        print('程序终止成功')
 
     async def get_response(self, url):
         headers = {'User-Agent': random.choice(agents)}
@@ -165,27 +178,40 @@ class Manager:
             "https://": "http://%s:%s" % (item['ip'], item['port']),
         }
 
+        def remove_proxy(item):
+            if item in self.proxies:
+                self.proxies.remove(item)
+                if len(self.proxies) < 4:
+                    self.proxies += self.get_proxies()
+
         async with httpx.AsyncClient(proxies=proxy) as client:
-            r = await client.get(url, headers=headers)
-        print(r.status_code)
+            try:
+                r = await client.get(url, headers=headers)
+            except Exception as e:
+                print('remove proxy')
+                remove_proxy(item)
+                raise e
+            else:
+                print(r.status_code)
+                if r.status_code != 200:
+                    print('remove proxy')
+                    remove_proxy(item)
+                    raise Exception('fail')
+                return r
 
-        if r.status_code != 200:
-            self.proxies.remove(item)
-            if len(self.proxies) < 4:
-                self.proxies += self.get_proxies()
-            raise Exception('fail')
-
-        return r
-
-    def handle_result(self, title, year, score, comment_amount, comment):
-        self.cache.append((title, year, score, comment_amount, comment))
+    def handle_result(
+        self, comment_id, movie_id, title, year, score, comment_amount, comment
+    ):
+        self.cache.append(
+            (comment_id, movie_id, title, year, score, comment_amount, comment)
+        )
         print('handle_result')
         if len(self.cache) >= 10:
             if not os.path.exists('comments.csv'):
                 with open(
                     'comments.csv', 'a', newline='', encoding='utf-8-sig'
                 ) as comment_file:
-                    fieldnames = ['电影名', '年份', '评分', '影评数', '当前影评']
+                    fieldnames = ['评论id', '电影id', '电影名', '年份', '评分', '影评数', '当前影评']
                     writer = csv.DictWriter(comment_file, fieldnames=fieldnames)
                     writer.writeheader()
 
@@ -335,6 +361,8 @@ class CommentDetail:
 
         content = ''.join([a.text for a in contents])
         Manager().handle_result(
+            comment_id=self.id,
+            movie_id=self.movie_id,
             title=Manager().movie_infos[self.movie_id]['title'],
             year=Manager().movie_infos[self.movie_id]['year'],
             score=Manager().movie_infos[self.movie_id]['score'],
@@ -344,6 +372,8 @@ class CommentDetail:
 
 
 async def main():
+    import signal
+
     if os.path.exists('data'):
         print('读取记录文件')
         with open('data', 'rb') as datafile:
@@ -354,11 +384,19 @@ async def main():
         manager = Manager()
 
     manager = Manager()
+    manager.last_time = int(time.time())
     manager.register_handler('page_process', PageProcess)
     manager.register_handler('movie_finder', MovieFinder)
     manager.register_handler('comment_page', CommentPage)
     manager.register_handler('comment_detail', CommentDetail)
-    await manager.running()
+
+    def stop(signum, frame):
+        asyncio.gather(manager.stop())
+
+    signal.signal(signal.SIGTERM, stop)  # kill pid
+    signal.signal(signal.SIGINT, stop)  # ctrl -c
+
+    await manager.run()
 
 
 asyncio.log.logger.setLevel(logging.ERROR)
