@@ -89,18 +89,15 @@ class Manager:
             标题
             年份
         """
+        self.last_time = int(time.time())
+
         if not self.inited:
             self.inited = True
 
+            self.proxies = self.get_proxies()
+
             self.finded_urls = list()
             self.finded_movie_ids = list()
-
-            self.url_task = deque()
-            self.movie_task = deque()
-
-            self.comment_pages = deque()
-
-            self.comment_ids = deque()
 
             self.movie_infos = dict()
 
@@ -115,7 +112,6 @@ class Manager:
             # 第一次运行
             index_url = 'https://movie.douban.com/'
             self.finded_urls.append(index_url)
-            # self.url_task.append(index_url)
 
             self.add_task('page_process', index_url)
 
@@ -150,21 +146,22 @@ class Manager:
                     task_amount += len(self.tasks[priority])
                     if len(self.tasks[priority]) == 0:
                         continue
-
-                    name, data = self.tasks[priority].pop(0)
-
-                    if name == 'page_process':
-                        worker.add_future(
-                            process(name, data, priority, self.page_process(data))
-                        )
-                    else:
-                        handler = self.handlers.get(name)
-                        if handler:
+                    for name, data in self.tasks[priority]:
+                        if name == 'page_process':
                             worker.add_future(
-                                process(name, data, priority, handler(data).process())
+                                process(name, data, priority, self.page_process(data))
                             )
+                        else:
+                            handler = self.handlers.get(name)
+                            if handler:
+                                worker.add_future(
+                                    process(
+                                        name, data, priority, handler(data).process()
+                                    )
+                                )
+                    self.tasks[priority] = []
 
-            if time.time() - self.last_time > 5:
+            if time.time() - self.last_time > 10:
                 await self.save_data()
 
             print('task_amount:', task_amount)
@@ -172,41 +169,6 @@ class Manager:
             await worker.execute()
 
             time.sleep(1)
-
-        while True:
-            while len(self.comment_ids) > 0 and len(worker) < 20:
-                comment_id, movie_id = self.comment_ids.popleft()
-                comment = CommentDetail(comment_id, movie_id)
-                worker.add_future(comment.process())
-
-            while len(self.comment_pages) > 0 and len(worker) < 20:
-                comment_page_id, start = self.comment_pages.popleft()
-                comment_page = CommentPage(comment_page_id, start)
-                worker.add_future(comment_page.process())
-
-            while len(self.movie_task) > 0 and len(worker) < 20:
-                movie_id = self.movie_task.popleft()
-                movie = MovieFinder(movie_id)
-                worker.add_future(movie.process())
-
-            while len(self.url_task) > 0 and len(worker) < 20:
-                url = self.url_task.popleft()
-                worker.add_future(self.page_process(url))
-
-            if time.time() - self.last_time > 5:
-                await self.save_data()
-
-            print('worker_1:', len(worker))
-
-            await worker.execute()
-
-            time.sleep(1)
-            print('len(self.finded_movie_ids)')
-            print('url_task:', len(self.url_task))
-            print('movie_task:', len(self.movie_task))
-            print('comment_pages:', len(self.comment_pages))
-            print('comment_ids:', len(self.comment_ids))
-            print('worker_2:', len(worker))
 
     async def page_process(self, url):
         response = await self.get_response(url)
@@ -233,11 +195,20 @@ class Manager:
 
     async def get_response(self, url):
         headers = {'User-Agent': random.choice(agents)}
-        async with httpx.AsyncClient(proxies=proxies) as client:
+        item = random.choice(self.proxies)
+        proxy = {
+            "http://": "http://%s:%s" % (item['ip'], item['port']),
+            "https://": "http://%s:%s" % (item['ip'], item['port']),
+        }
+
+        async with httpx.AsyncClient(proxies=proxy) as client:
             r = await client.get(url, headers=headers)
         print(r.status_code)
 
         if r.status_code != 200:
+            self.proxies.remove(item)
+            if len(self.proxies) < 4:
+                self.proxies += self.get_proxies()
             raise Exception('fail')
 
         return r
@@ -265,11 +236,22 @@ class Manager:
     def register_handler(self, name, handler):
         self.handlers[name] = handler
 
+    def get_proxies(self):
+        response = httpx.get(
+            'http://webapi.http.zhimacangku.com/getip?num=12&type=2&pro=&city=0&yys=0&port=1&time=1&ts=0&ys=0&cs=0&lb=1&sb=0&pb=45&mr=1&regions='
+        )
+        print(response.json())
+        return response.json()['data']
 
-proxies = {
-    "http://": "http://127.0.0.1:8787",
-    "https://": "http://127.0.0.1:8787",
-}
+
+# proxies = {
+#     "http://": "http://127.0.0.1:8787",
+#     "https://": "http://127.0.0.1:8787",
+# }
+# proxies = {
+#     "http://": "http://220.201.85.80:4250",
+#     "https://": "http://220.201.85.80:4250",
+# }
 
 
 class MovieFinder:
@@ -323,7 +305,6 @@ class MovieFinder:
     def get_comments(self):
         for start in range(0, self.comment_amount, 20):
             # url = 'https://movie.douban.com/subject/35096844/reviews?start=%s' % start
-            # Manager().comment_pages.append((self.id, start))
             Manager().add_task(
                 'comment_page', data={'id': self.id, 'start': start}, priority=4
             )
@@ -341,7 +322,7 @@ class CommentPage:
         page_text = await Manager().page_process(self.url)
         url_pattern = r'https://movie.douban.com/review/([0-9]*?)/'
         result = re.findall(url_pattern, page_text)
-        for finded in result:
+        for finded in set(result):
             Manager().add_task(
                 'comment_detail', data={'id': finded, 'movie_id': self.id}, priority=5
             )
@@ -375,7 +356,8 @@ async def main():
         print('读取记录文件')
         with open('data', 'rb') as datafile:
             manager = pickle.load(datafile)
-            print('已解析过的链接数：', len(manager.finded_urls))
+            print('已发现的链接数：', len(manager.finded_urls))
+            print('已发现的电影数：', len(manager.finded_movie_ids))
     else:
         manager = Manager()
 
