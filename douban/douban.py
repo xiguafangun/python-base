@@ -92,12 +92,11 @@ class Manager:
             标题
             年份
         """
+
         if not self.inited:
             self.inited = True
 
             self.running = False
-
-            self.proxies = self.get_proxies()
 
             self.finded_urls = list()
             self.finded_movie_ids = list()
@@ -138,7 +137,11 @@ class Manager:
             try:
                 return await task
             except Exception as e:
+                print(type(e))
                 print(e)
+                # import traceback
+
+                # traceback.print_exc()
                 self.add_task(name, data, priority)
 
         self.running = True
@@ -146,7 +149,7 @@ class Manager:
         while self.running:
             self.tasks.sort(key=lambda x: x[2], reverse=True)
 
-            while len(worker) < 40 and len(self.tasks) > 0:
+            while len(worker) < 100 and len(self.tasks) > 0:
                 name, data, priority = self.tasks.pop(0)
                 handler = self.handlers.get(name)
                 if handler:
@@ -159,45 +162,58 @@ class Manager:
             print('task_amount:', len(self.tasks))
             print('finded_movie_ids:', len(self.finded_movie_ids))
 
-            await worker.execute()
+            await worker.execute(max_task_amount=100)
 
-            if time.time() - self.last_time > 60:
+            if time.time() - self.last_time > 600:
                 # 每分钟保存一次数据
                 await self.save_data()
 
-            time.sleep(1)
+            # time.sleep(1)
 
         await self.save_data()
         print('程序终止成功')
 
     async def get_response(self, url):
         headers = {'User-Agent': random.choice(agents)}
+        if len(self.proxies) < 100:
+            self.get_proxies()
+
         item = random.choice(self.proxies)
+        # proxy = {
+        #     "http://": "http://%s:%s" % (item['ip'], item['port']),
+        #     "https://": "http://%s:%s" % (item['ip'], item['port']),
+        # }
+        # proxy = {
+        #     "http://": "http://%s" % (item),
+        #     "https://": "http://%s" % (item),
+        # }
         proxy = {
-            "http://": "http://%s:%s" % (item['ip'], item['port']),
-            "https://": "http://%s:%s" % (item['ip'], item['port']),
+            "all://": "http://%s:%s" % (item['ip'], item['port']),
         }
 
         def remove_proxy(item):
             if item in self.proxies:
                 self.proxies.remove(item)
-                if len(self.proxies) < 4:
-                    self.proxies += self.get_proxies()
 
         async with httpx.AsyncClient(proxies=proxy) as client:
             try:
-                r = await client.get(url, headers=headers)
+                response = await client.get(url, headers=headers)
+                if len(response.text) < 500:
+                    raise Exception('数据太少')
             except Exception as e:
+                print(proxy)
+                print(e)
+                print(type(e))
                 print('remove proxy')
                 remove_proxy(item)
                 raise e
             else:
-                print(r.status_code)
-                if r.status_code != 200:
+                print(response.status_code)
+                if response.status_code != 200:
                     print('remove proxy')
                     remove_proxy(item)
-                    raise Exception('fail')
-                return r
+                    raise Exception('代理出错')
+                return response
 
     def handle_result(
         self, comment_id, movie_id, title, year, score, comment_amount, comment
@@ -227,21 +243,15 @@ class Manager:
         self.handlers[name] = handler
 
     def get_proxies(self):
+        # 代理
         response = httpx.get(
-            'http://webapi.http.zhimacangku.com/getip?num=12&type=2&pro=&city=0&yys=0&port=1&time=1&ts=0&ys=0&cs=0&lb=1&sb=0&pb=45&mr=1&regions='
+            'http://piping.mogumiao.com/proxy/api/get_ip_bs?appKey=3bf9909f7534493cbc53a8749051abb1&count=5&expiryDate=0&format=1&newLine=2'
         )
-        print(response.json())
-        return response.json()['data']
 
-
-# proxies = {
-#     "http://": "http://127.0.0.1:8787",
-#     "https://": "http://127.0.0.1:8787",
-# }
-# proxies = {
-#     "http://": "http://220.201.85.80:4250",
-#     "https://": "http://220.201.85.80:4250",
-# }
+        if response.json()['code'] == '0':
+            # 提取成功
+            self.proxies += response.json()['msg']
+            print(self.proxies)
 
 
 class PageProcess:
@@ -356,10 +366,8 @@ class CommentDetail:
 
         soup = BeautifulSoup(page_text, features='lxml')
 
-        contents = soup.find(name='div', attrs={"class": "review-content"})
-        contents = contents.find_all(name='p')
+        content = soup.find(name='div', attrs={"class": "review-content"}).text
 
-        content = ''.join([a.text for a in contents])
         Manager().handle_result(
             comment_id=self.id,
             movie_id=self.movie_id,
@@ -385,6 +393,7 @@ async def main():
 
     manager = Manager()
     manager.last_time = int(time.time())
+    manager.proxies = []
     manager.register_handler('page_process', PageProcess)
     manager.register_handler('movie_finder', MovieFinder)
     manager.register_handler('comment_page', CommentPage)
@@ -400,4 +409,6 @@ async def main():
 
 
 asyncio.log.logger.setLevel(logging.ERROR)
-asyncio.run(main())
+# asyncio.run(main())
+loop = asyncio.get_event_loop()
+loop.run_until_complete(main())
