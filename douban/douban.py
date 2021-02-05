@@ -394,6 +394,7 @@ async def main():
     manager = Manager()
     manager.last_time = int(time.time())
     manager.proxies = []
+
     manager.register_handler('page_process', PageProcess)
     manager.register_handler('movie_finder', MovieFinder)
     manager.register_handler('comment_page', CommentPage)
