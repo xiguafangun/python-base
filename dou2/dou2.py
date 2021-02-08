@@ -138,14 +138,17 @@ class Manager:
                 fieldnames=[
                     'movie_id',
                     'movie_name',
+                    'length',
                     'year',
                     'score',
                     'score_count',
+                    'intro',
+                    'actor_count',
                     'short_count',
+                    'topic_count',
                     'comment_count',
                     'discuss_count',
-                    'length',
-                    'intro',
+                    'question_count',
                 ],
             )
             # CATES_FILENAME = 'cates.csv'
@@ -418,38 +421,62 @@ class MovieFinder:
         self.url = 'https://movie.douban.com/subject/%s/' % id
 
     async def process(self):
-        """
-        遍历影评所有页面
-        将提取出得url加入任务队列
-        """
         page_text = await PageProcess(self.url).process()
+        soup = BeautifulSoup(page_text, features='lxml')
 
-        title_pattern = r'<span property="v:itemreviewed">(.*?)</span>'
+        'movie_id',
+        'movie_name',
+        'length',
+        'year',
+        'score',
+        'score_count',
+        'intro',
+        'actor_count',
+        'short_count',
+        'topic_count',
+        'comment_count',
+        'discuss_count',
+        'question_count',
 
-        result = re.search(title_pattern, page_text)
-        self.title = result.group(1)
+        # 电影名
+        result = soup.find(name='span', attrs={"property": "v:itemreviewed"})
+        movie_name = result.text
 
-        year_pattern = r'<span class="year">\((.*?)\)</span>'
-        result = re.search(year_pattern, page_text)
+        # 年份
+        result = soup.find(name='span', attrs={"class": "year"})
+        year = result.text[1:-1]
 
-        self.year = int(result.group(1))
+        # 电影长度
+        result = soup.find(name='span', attrs={"property": "v:runtime"})
+        length = result.attrs['content']
 
-        score_pattern = (
-            r'<strong class="ll rating_num" property="v:average">(.*?)</strong>'
-        )
-        result = re.search(score_pattern, page_text)
+        # 评分
+        result = soup.find(name='span', attrs={"property": "v:average"})
+        score = result.text
 
-        if result.group(1) != '':
-            self.score = float(result.group(1))
-        else:
-            self.score = ''
+        # 评分人数
+        result = soup.find(name='span', attrs={"property": "v:votes"})
+        score_count = result.text
 
+        # 简介
+        result = soup.find(name='span', attrs={"property": "v:summary"})
+        intro = result.text
+
+        # 演员数
+        result = soup.find(name='a', href=re.compile("/subject/.*?/celebrities"))
+        actor_count = result.text[3:]
+
+        # 短评数
+        result = soup.find(name='span', attrs={"property": "v:summary"})
+        intro = result.text
+
+        # 评论数
         comment_pattern = (
             r'<span class="pl">\( <a href="reviews">全部 (.*?) 条</a> \)</span>'
         )
         result = re.search(comment_pattern, page_text)
 
-        self.comment_amount = int(result.group(1))
+        comment_amount = result.group(1)
 
         # Manager().movie_infos[self.id] = {
         #     'title': self.title,
