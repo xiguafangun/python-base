@@ -37,8 +37,9 @@ proxies = {
 
 headers = {'User-Agent': random.choice(agents)}
 response = requests.get(
-    'https://movie.douban.com/subject/1292365/', headers=headers, proxies=proxies
+    'https://movie.douban.com/subject/26746801/', headers=headers, proxies=proxies
 )
+page_text = response.text
 
 # pattern = r'<span property="v:itemreviewed">(.*?)</span>'
 # result = re.search(pattern, response.text)
@@ -47,10 +48,108 @@ response = requests.get(
 
 from bs4 import BeautifulSoup
 
-soup = BeautifulSoup(response.text)
+soup = BeautifulSoup(response.text, features='lxml')
 
+'movie_id',
+'movie_name',
+'length',
+'year',
+'score',
+'score_count',
+'intro',
+'actor_count',
+'short_count',
+'topic_count',
+'comment_count',
+'discuss_count',
+'question_count',
+
+# 电影名
+result = soup.find(name='span', attrs={"property": "v:itemreviewed"})
+movie_name = result.text
+
+# 年份
+result = soup.find(name='span', attrs={"class": "year"})
+year = result.text[1:-1]
+
+# 电影长度
+result = soup.find(name='span', attrs={"property": "v:runtime"})
+if result:
+    length = result.attrs['content']
+else:
+    length = ''
+
+# 评分
+result = soup.find(name='strong', attrs={"property": "v:average"})
+if result:
+    score = result.text
+else:
+    score = ''
+
+# 评分人数
+result = soup.find(name='span', attrs={"property": "v:votes"})
+if result:
+    score_count = result.text
+else:
+    score_count = 0
+
+# 简介
+result = soup.find(name='span', attrs={"property": "v:summary"})
+intro = result.text
+
+'want_count',
+'watched_count',
+
+# 想看
+result = re.search(r'([0-9]*?)人想看', page_text)
+want_count = result.group(1)
+
+# 看过
+result = re.search(r'([0-9]*?)人看过', page_text)
+watched_count = result.group(1)
+
+# 演员数
 result = soup.find(name='a', href=re.compile("/subject/.*?/celebrities"))
-print(result.text)
-import ipdb
+actor_count = result.text[3:]
 
-ipdb.set_trace()
+# 短评数
+result = soup.find(
+    name='a',
+    href=re.compile(r"https://movie.douban.com/subject/.*?/comments\?status=P"),
+)
+short_count = result.text[3:-2]
+
+# 影评数
+result = soup.find(name='a', href='reviews')
+comment_count = result.text[3:-2]
+
+# 讨论数
+result = re.search(r'去这部影片的讨论区（全部(.*?)条）', page_text)
+discuss_count = result.group(1)
+
+# 问题数
+result = re.search(r'全部(.*?)个问题', page_text)
+if not result:
+    question_count = 0
+else:
+    question_count = result.group(1)
+
+abc = dict(
+    movie_name=movie_name,
+    length=length,
+    year=year,
+    score=score,
+    score_count=score_count,
+    # intro=intro,
+    want_count=want_count,
+    watched_count=watched_count,
+    actor_count=actor_count,
+    short_count=short_count,
+    comment_count=comment_count,
+    discuss_count=discuss_count,
+    question_count=question_count,
+)
+
+from pprint import pprint
+
+pprint(abc)

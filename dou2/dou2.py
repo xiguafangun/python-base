@@ -143,9 +143,10 @@ class Manager:
                     'score',
                     'score_count',
                     'intro',
+                    'want_count',
+                    'watched_count',
                     'actor_count',
                     'short_count',
-                    'topic_count',
                     'comment_count',
                     'discuss_count',
                     'question_count',
@@ -228,6 +229,9 @@ class Manager:
             try:
                 return await task
             except Exception as e:
+                import traceback
+
+                traceback.print_exc()
                 print(type(e))
                 print(e)
                 # import traceback
@@ -297,6 +301,9 @@ class Manager:
                 if len(response.text) < 500:
                     raise Exception('数据太少')
             except Exception as e:
+                import traceback
+
+                traceback.print_exc()
                 print(e)
                 print(type(e))
                 print(proxy)
@@ -451,7 +458,7 @@ class MovieFinder:
         length = result.attrs['content']
 
         # 评分
-        result = soup.find(name='span', attrs={"property": "v:average"})
+        result = soup.find(name='strong', attrs={"property": "v:average"})
         score = result.text
 
         # 评分人数
@@ -467,23 +474,41 @@ class MovieFinder:
         actor_count = result.text[3:]
 
         # 短评数
-        result = soup.find(name='span', attrs={"property": "v:summary"})
-        intro = result.text
-
-        # 评论数
-        comment_pattern = (
-            r'<span class="pl">\( <a href="reviews">全部 (.*?) 条</a> \)</span>'
+        result = soup.find(
+            name='a',
+            href=re.compile(r"https://movie.douban.com/subject/.*?/comments\?status=P"),
         )
-        result = re.search(comment_pattern, page_text)
+        short_count = result.text[3:-2]
 
-        comment_amount = result.group(1)
+        # 影评数
+        result = soup.find(name='a', href='reviews')
+        comment_count = result.text[3:-2]
 
-        # Manager().movie_infos[self.id] = {
-        #     'title': self.title,
-        #     'year': self.year,
-        #     'score': self.score,
-        #     'comment_amount': self.comment_amount,
-        # }
+        # 讨论数
+        result = re.search(r'去这部影片的讨论区（全部(.*?)条）', page_text)
+        discuss_count = result.group(1)
+
+        # 问题数
+        result = re.search(r'全部(.*?)个问题', page_text)
+        if not result:
+            question_count = 0
+        else:
+            question_count = result.group(1)
+
+        Manager().movies_saver.add(
+            movie_id=self.id,
+            movie_name=movie_name,
+            length=length,
+            year=year,
+            score=score,
+            score_count=score_count,
+            intro=intro,
+            actor_count=actor_count,
+            short_count=short_count,
+            comment_count=comment_count,
+            discuss_count=discuss_count,
+            question_count=question_count,
+        )
 
 
 async def main():
