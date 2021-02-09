@@ -97,9 +97,6 @@ else:
 result = soup.find(name='span', attrs={"property": "v:summary"})
 intro = result.text
 
-'want_count',
-'watched_count',
-
 # 想看
 result = re.search(r'([0-9]*?)人想看', page_text)
 want_count = result.group(1)
@@ -113,11 +110,11 @@ result = soup.find(name='a', href=re.compile("/subject/.*?/celebrities"))
 actor_count = result.text[3:]
 
 # 短评数
-result = soup.find(
-    name='a',
-    href=re.compile(r"https://movie.douban.com/subject/.*?/comments\?status=P"),
+result = re.search(
+    r'<a href="https://movie.douban.com/subject/.*?/comments\?status=.">全部 (.*?) 条</a>',
+    page_text,
 )
-short_count = result.text[3:-2]
+short_count = result.group(1)
 
 # 影评数
 result = soup.find(name='a', href='reviews')
@@ -125,7 +122,10 @@ comment_count = result.text[3:-2]
 
 # 讨论数
 result = re.search(r'去这部影片的讨论区（全部(.*?)条）', page_text)
-discuss_count = result.group(1)
+if result:
+    discuss_count = result.group(1)
+else:
+    discuss_count = 0
 
 # 问题数
 result = re.search(r'全部(.*?)个问题', page_text)
@@ -133,6 +133,19 @@ if not result:
     question_count = 0
 else:
     question_count = result.group(1)
+
+# 编剧
+# result = re.search(
+#     r'<span ><span class=\'pl\'>编剧</span>: <span class=\'attrs\'></span></span><br/>'
+# )
+# import ipdb
+
+# ipdb.set_trace()
+
+result = soup.find(name='span', text='编剧').parent.find_all(name='a')
+import ipdb
+
+ipdb.set_trace()
 
 abc = dict(
     movie_name=movie_name,

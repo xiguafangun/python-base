@@ -162,7 +162,7 @@ class Manager:
                 filename=CATES_FILENAME,
                 fieldnames=[
                     'movie_id',
-                    '类型',
+                    'cate',
                 ],
             )
 
@@ -170,35 +170,35 @@ class Manager:
                 filename=LANGS_FILENAME,
                 fieldnames=[
                     'movie_id',
-                    '语言',
+                    'lang',
                 ],
             )
             self.directors_saver = Saver(
                 filename=DIRECTORS_FILENAME,
                 fieldnames=[
                     'movie_id',
-                    '导演',
+                    'director',
                 ],
             )
             self.writers_saver = Saver(
                 filename=WRITERS_FILENAME,
                 fieldnames=[
                     'movie_id',
-                    '编剧',
+                    'writer',
                 ],
             )
             self.regions_saver = Saver(
                 filename=REGIONS_FILENAME,
                 fieldnames=[
                     'movie_id',
-                    '地区',
+                    'region',
                 ],
             )
             self.actors_saver = Saver(
                 filename=ACTORS_FILENAME,
                 fieldnames=[
                     'movie_id',
-                    '导演',
+                    'actor',
                 ],
             )
 
@@ -232,6 +232,7 @@ class Manager:
                 import traceback
 
                 traceback.print_exc()
+                print(data)
                 print(type(e))
                 print(e)
                 # import traceback
@@ -455,30 +456,57 @@ class MovieFinder:
 
         # 电影长度
         result = soup.find(name='span', attrs={"property": "v:runtime"})
-        length = result.attrs['content']
+        if result:
+            length = result.attrs['content']
+        else:
+            length = ''
 
         # 评分
         result = soup.find(name='strong', attrs={"property": "v:average"})
-        score = result.text
+        if result:
+            score = result.text
+        else:
+            score = ''
 
         # 评分人数
         result = soup.find(name='span', attrs={"property": "v:votes"})
-        score_count = result.text
+        if result:
+            score_count = result.text
+        else:
+            score_count = 0
 
         # 简介
         result = soup.find(name='span', attrs={"property": "v:summary"})
-        intro = result.text
+        intro = result.text.replace(' ', '').replace('\n', '')
+
+        # 想看
+        result = re.search(r'([0-9]*?)人想看', page_text)
+        if result:
+            want_count = result.group(1)
+        else:
+            want_count = 0
+
+        # 看过
+        result = re.search(r'([0-9]*?)人看过', page_text)
+        watched_count = result.group(1)
+        if result:
+            watched_count = result.group(1)
+        else:
+            watched_count = 0
 
         # 演员数
         result = soup.find(name='a', href=re.compile("/subject/.*?/celebrities"))
-        actor_count = result.text[3:]
+        if result:
+            actor_count = result.text[3:]
+        else:
+            actor_count = 0
 
         # 短评数
-        result = soup.find(
-            name='a',
-            href=re.compile(r"https://movie.douban.com/subject/.*?/comments\?status=P"),
+        result = re.search(
+            r'<a href="https://movie.douban.com/subject/.*?/comments\?status=.">全部 (.*?) 条</a>',
+            page_text,
         )
-        short_count = result.text[3:-2]
+        short_count = result.group(1)
 
         # 影评数
         result = soup.find(name='a', href='reviews')
@@ -486,7 +514,10 @@ class MovieFinder:
 
         # 讨论数
         result = re.search(r'去这部影片的讨论区（全部(.*?)条）', page_text)
-        discuss_count = result.group(1)
+        if result:
+            discuss_count = result.group(1)
+        else:
+            discuss_count = 0
 
         # 问题数
         result = re.search(r'全部(.*?)个问题', page_text)
@@ -494,6 +525,38 @@ class MovieFinder:
             question_count = 0
         else:
             question_count = result.group(1)
+
+        # 以下为一对多的
+
+        # 类型
+        result = soup.find_all(name='span', attrs={'property': 'v:genre'})
+        for element in result:
+            Manager().cates_saver.add(movie_id=self.id, cate=element.text)
+
+        # 语言
+        result = re.search(r'<span class="pl">语言:</span>(.*?)<br/>', page_text)
+        for lang in result.group(1).replace(' ', '').split('/'):
+            Manager().langs_saver.add(movie_id=self.id, lang=lang)
+
+        # 导演
+        result = soup.find_all(name='a', attrs={'rel': 'v:directedBy'})
+        for element in result:
+            Manager().directors_saver.add(movie_id=self.id, director=element.text)
+
+        # 编剧
+        result = soup.find(name='span', text='编剧').parent.find_all(name='a')
+        for element in result:
+            Manager().writers_saver.add(movie_id=self.id, writer=element.text)
+
+        # 地区
+        result = re.search(r'<span class="pl">制片国家/地区:</span>(.*?)<br/>', page_text)
+        for region in result.group(1).replace(' ', '').split('/'):
+            Manager().regions_saver.add(movie_id=self.id, region=region)
+
+        # 主演
+        result = soup.find_all(name='a', attrs={'rel': 'v:starring'})
+        for element in result:
+            Manager().actors_saver.add(movie_id=self.id, actor=element.text)
 
         Manager().movies_saver.add(
             movie_id=self.id,
@@ -503,6 +566,8 @@ class MovieFinder:
             score=score,
             score_count=score_count,
             intro=intro,
+            want_count=want_count,
+            watched_count=watched_count,
             actor_count=actor_count,
             short_count=short_count,
             comment_count=comment_count,
