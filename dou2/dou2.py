@@ -41,7 +41,8 @@ AGENTS = [
 
 DATA_FILENAME = 'data'
 
-INDEX_URL = 'https://movie.douban.com/'
+# INDEX_URL = 'https://movie.douban.com/'
+INDEX_URL = 'https://movie.douban.com/subject/26752564/'
 
 MOVIES_FILENAME = 'movies.csv'
 CATES_FILENAME = 'cates.csv'
@@ -265,7 +266,7 @@ class Manager:
                 # 每分钟保存一次数据
                 await self.save_data()
 
-            time.sleep(1)
+            time.sleep(2)
 
         await self.save_data()
         print('程序终止成功')
@@ -488,7 +489,6 @@ class MovieFinder:
 
         # 看过
         result = re.search(r'([0-9]*?)人看过', page_text)
-        watched_count = result.group(1)
         if result:
             watched_count = result.group(1)
         else:
@@ -535,28 +535,33 @@ class MovieFinder:
 
         # 语言
         result = re.search(r'<span class="pl">语言:</span>(.*?)<br/>', page_text)
-        for lang in result.group(1).replace(' ', '').split('/'):
-            Manager().langs_saver.add(movie_id=self.id, lang=lang)
+        if result:
+            for lang in result.group(1).replace(' ', '').split('/'):
+                Manager().langs_saver.add(movie_id=self.id, lang=lang)
 
         # 导演
         result = soup.find_all(name='a', attrs={'rel': 'v:directedBy'})
-        for element in result:
-            Manager().directors_saver.add(movie_id=self.id, director=element.text)
+        if result:
+            for element in result:
+                Manager().directors_saver.add(movie_id=self.id, director=element.text)
 
         # 编剧
-        result = soup.find(name='span', text='编剧').parent.find_all(name='a')
-        for element in result:
-            Manager().writers_saver.add(movie_id=self.id, writer=element.text)
+        result = soup.find(name='span', text='编剧')
+        if result:
+            for element in result.parent.find_all(name='a'):
+                Manager().writers_saver.add(movie_id=self.id, writer=element.text)
 
         # 地区
         result = re.search(r'<span class="pl">制片国家/地区:</span>(.*?)<br/>', page_text)
-        for region in result.group(1).replace(' ', '').split('/'):
-            Manager().regions_saver.add(movie_id=self.id, region=region)
+        if result:
+            for region in result.group(1).replace(' ', '').split('/'):
+                Manager().regions_saver.add(movie_id=self.id, region=region)
 
         # 主演
         result = soup.find_all(name='a', attrs={'rel': 'v:starring'})
-        for element in result:
-            Manager().actors_saver.add(movie_id=self.id, actor=element.text)
+        if result:
+            for element in result:
+                Manager().actors_saver.add(movie_id=self.id, actor=element.text)
 
         Manager().movies_saver.add(
             movie_id=self.id,
