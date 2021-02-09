@@ -445,8 +445,8 @@ class MovieFinder:
         'question_count',
 
         # 电影名
-        result = soup.find(name='span', attrs={"property": "v:itemreviewed"})
-        movie_name = result.text
+        result = soup.find(name='title')
+        movie_name = result.text.strip()[:-5]
 
         # 年份
         result = soup.find(name='span', attrs={"class": "year"})
