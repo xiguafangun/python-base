@@ -41,8 +41,7 @@ AGENTS = [
 
 DATA_FILENAME = 'data'
 
-# INDEX_URL = 'https://movie.douban.com/'
-INDEX_URL = 'https://movie.douban.com/subject/26752564/'
+INDEX_URL = 'https://movie.douban.com/'
 
 MOVIES_FILENAME = 'movies.csv'
 CATES_FILENAME = 'cates.csv'
@@ -300,6 +299,8 @@ class Manager:
         async with httpx.AsyncClient(proxies=proxy) as client:
             try:
                 response = await client.get(url, headers=headers)
+                if response.status_code != 200:
+                    raise Exception('代理出错')
                 if len(response.text) < 500:
                     raise Exception('数据太少')
             except Exception as e:
@@ -314,10 +315,6 @@ class Manager:
                 raise e
             else:
                 print(response.status_code)
-                if response.status_code != 200:
-                    print('remove proxy')
-                    remove_proxy(item)
-                    raise Exception('代理出错')
                 return response
 
     # def handle_movies(self, movie_id, title, year, score, comment_amount, comment):
@@ -478,7 +475,10 @@ class MovieFinder:
 
         # 简介
         result = soup.find(name='span', attrs={"property": "v:summary"})
-        intro = result.text.replace(' ', '').replace('\n', '')
+        if result:
+            intro = result.text.replace(' ', '').replace('\n', '')
+        else:
+            intro = ''
 
         # 想看
         result = re.search(r'([0-9]*?)人想看', page_text)
