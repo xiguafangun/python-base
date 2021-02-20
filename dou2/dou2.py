@@ -478,7 +478,7 @@ class MovieFinder:
             score = result.text
         else:
             result = soup.find(name='div', attrs={"class": "rating_sum"})
-            if result:
+            if result and result.text:
                 score = result.text
             else:
                 score = ''
