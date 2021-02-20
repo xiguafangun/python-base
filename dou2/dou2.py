@@ -14,30 +14,31 @@ import pickle
 import time
 
 from bs4 import BeautifulSoup
+from fake_useragent import UserAgent
 
-AGENTS = [
-    "Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6_8; en-us) AppleWebKit/534.50 (KHTML, like Gecko) Version/5.1 Safari/534.50",
-    "Mozilla/5.0 (Windows; U; Windows NT 6.1; en-us) AppleWebKit/534.50 (KHTML, like Gecko) Version/5.1 Safari/534.50",
-    "Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0);",
-    "Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.0; Trident/4.0)",
-    "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.0)",
-    "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1)",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.6; rv:2.0.1) Gecko/20100101 Firefox/4.0.1",
-    "Mozilla/5.0 (Windows NT 6.1; rv:2.0.1) Gecko/20100101 Firefox/4.0.1",
-    "Opera/9.80 (Macintosh; Intel Mac OS X 10.6.8; U; en) Presto/2.8.131 Version/11.11",
-    "Opera/9.80 (Windows NT 6.1; U; en) Presto/2.8.131 Version/11.11",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_0) AppleWebKit/535.11 (KHTML, like Gecko) Chrome/17.0.963.56 Safari/535.11",
-    "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1; Maxthon 2.0)",
-    "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1; TencentTraveler 4.0)",
-    "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1)",
-    "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1; The World)",
-    "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1; Trident/4.0; SE 2.X MetaSr 1.0; SE 2.X MetaSr 1.0; .NET CLR 2.0.50727; SE 2.X MetaSr 1.0)",
-    "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1; 360SE)",
-    "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1; Avant Browser)",
-    "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1)",
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36"
-    "Mozilla/5.0 (X11; Linux x86_64; rv:76.0) Gecko/20100101 Firefox/76.0",
-]
+# AGENTS = [
+#     "Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6_8; en-us) AppleWebKit/534.50 (KHTML, like Gecko) Version/5.1 Safari/534.50",
+#     "Mozilla/5.0 (Windows; U; Windows NT 6.1; en-us) AppleWebKit/534.50 (KHTML, like Gecko) Version/5.1 Safari/534.50",
+#     "Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0);",
+#     "Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.0; Trident/4.0)",
+#     "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.0)",
+#     "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1)",
+#     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.6; rv:2.0.1) Gecko/20100101 Firefox/4.0.1",
+#     "Mozilla/5.0 (Windows NT 6.1; rv:2.0.1) Gecko/20100101 Firefox/4.0.1",
+#     "Opera/9.80 (Macintosh; Intel Mac OS X 10.6.8; U; en) Presto/2.8.131 Version/11.11",
+#     "Opera/9.80 (Windows NT 6.1; U; en) Presto/2.8.131 Version/11.11",
+#     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_0) AppleWebKit/535.11 (KHTML, like Gecko) Chrome/17.0.963.56 Safari/535.11",
+#     "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1; Maxthon 2.0)",
+#     "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1; TencentTraveler 4.0)",
+#     "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1)",
+#     "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1; The World)",
+#     "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1; Trident/4.0; SE 2.X MetaSr 1.0; SE 2.X MetaSr 1.0; .NET CLR 2.0.50727; SE 2.X MetaSr 1.0)",
+#     "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1; 360SE)",
+#     "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1; Avant Browser)",
+#     "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1)",
+#     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36"
+#     "Mozilla/5.0 (X11; Linux x86_64; rv:76.0) Gecko/20100101 Firefox/76.0",
+# ]
 
 DATA_FILENAME = 'data'
 
@@ -51,8 +52,12 @@ WRITERS_FILENAME = 'writers.csv'
 REGIONS_FILENAME = 'regions.csv'
 ACTORS_FILENAME = 'actors.csv'
 
+LIMIT = 10
+
 
 # http://httpbin.org/get
+
+ua = UserAgent()
 
 
 class Worker:
@@ -137,6 +142,7 @@ class Manager:
                 filename=MOVIES_FILENAME,
                 fieldnames=[
                     'movie_id',
+                    'image_url',
                     'movie_name',
                     'length',
                     'year',
@@ -229,15 +235,13 @@ class Manager:
             try:
                 return await task
             except Exception as e:
-                import traceback
-
-                traceback.print_exc()
-                print(data)
-                print(type(e))
-                print(e)
                 # import traceback
 
                 # traceback.print_exc()
+                # print(data)
+                # print(type(e))
+                print(e)
+
                 self.add_task(name, data, priority)
 
         self.running = True
@@ -245,7 +249,7 @@ class Manager:
         while self.running:
             self.data.tasks.sort(key=lambda x: x[2], reverse=True)
 
-            while len(self.worker) < 1 and len(self.data.tasks) > 0:
+            while len(self.worker) < LIMIT and len(self.data.tasks) > 0:
                 name, data, priority = self.data.tasks.pop(0)
                 handler = self.handlers.get(name)
                 if handler:
@@ -262,40 +266,37 @@ class Manager:
             await self.worker.execute(max_task_amount=100)
 
             if time.time() - self.last_time > 600:
-                # 每分钟保存一次数据
+                self.last_time = time.time()
+                # 每十分钟保存一次数据
                 await self.save_data()
 
-            time.sleep(2)
+            # time.sleep(2)
 
         await self.save_data()
         print('程序终止成功')
 
     async def get_response(self, url):
-        headers = {'User-Agent': random.choice(AGENTS)}
-        # if len(self.proxies) < 100:
-        #     self.get_proxies()
+        headers = {'User-Agent': ua.random}
+        if len(self.proxies) < 100:
+            self.get_proxies()
 
-        # item = random.choice(self.proxies)
-        # proxy = {
-        #     "http://": "http://%s:%s" % (item['ip'], item['port']),
-        #     "https://": "http://%s:%s" % (item['ip'], item['port']),
-        # }
-        # proxy = {
-        #     "http://": "http://%s" % (item),
-        #     "https://": "http://%s" % (item),
-        # }
+        item = random.choice(self.proxies)
+        proxy = {
+            "http://": "http://%s:%s" % (item['ip'], item['port']),
+            "https://": "http://%s:%s" % (item['ip'], item['port']),
+        }
+
         # proxy = {
         #     "all://": "http://%s:%s" % (item['ip'], item['port']),
         # }
-        proxy = {
-            "all://": "http://%s:%s" % ('127.0.0.1', '8787'),
-        }
+        # proxy = {
+        #     "all://": "http://%s:%s" % ('127.0.0.1', '8787'),
+        # }
 
         def remove_proxy(item):
             if item in self.proxies:
                 self.proxies.remove(item)
 
-        # async with httpx.AsyncClient(proxies=proxy) as client:
         async with httpx.AsyncClient(proxies=proxy) as client:
             try:
                 response = await client.get(url, headers=headers)
@@ -304,13 +305,11 @@ class Manager:
                 if len(response.text) < 500:
                     raise Exception('数据太少')
             except Exception as e:
-                import traceback
+                # import traceback
 
-                traceback.print_exc()
-                print(e)
-                print(type(e))
-                print(proxy)
-                print('remove proxy')
+                # traceback.print_exc()
+                # print(e)
+                # print('remove proxy')
                 remove_proxy(item)
                 raise e
             else:
@@ -356,9 +355,10 @@ class Manager:
         self.handlers[name] = handler
 
     def get_proxies(self):
+        # self.proxies += [{"ip": "127.0.0.1", "port": "8787"}]
         # 代理
         response = httpx.get(
-            'http://piping.mogumiao.com/proxy/api/get_ip_bs?appKey=3bf9909f7534493cbc53a8749051abb1&count=5&expiryDate=0&format=1&newLine=2'
+            'http://piping.mogumiao.com/proxy/api/get_ip_bs?appKey=7323c4fd42ab40459d96b11bc14a5bc4&count=5&expiryDate=0&format=1&newLine=2'
         )
 
         if response.json()['code'] == '0':
@@ -446,11 +446,24 @@ class MovieFinder:
 
         # 电影名
         result = soup.find(name='title')
-        movie_name = result.text.strip()[:-5]
+        if result and result.text:
+            movie_name = result.text.strip()[:-5]
+        else:
+            movie_name = ''
+
+        # 海报
+        result = soup.find(name='img', attrs={"rel": "v:image", "title": "点击看更多海报"})
+        if result:
+            image_url = result.get('src')
+        else:
+            image_url = ''
 
         # 年份
         result = soup.find(name='span', attrs={"class": "year"})
-        year = result.text[1:-1]
+        if result and result.text:
+            year = result.text[1:-1]
+        else:
+            year = ''
 
         # 电影长度
         result = soup.find(name='span', attrs={"property": "v:runtime"})
@@ -461,14 +474,18 @@ class MovieFinder:
 
         # 评分
         result = soup.find(name='strong', attrs={"property": "v:average"})
-        if result:
+        if result and result.text:
             score = result.text
         else:
-            score = ''
+            result = soup.find(name='div', attrs={"class": "rating_sum"})
+            if result:
+                score = result.text
+            else:
+                score = ''
 
         # 评分人数
         result = soup.find(name='span', attrs={"property": "v:votes"})
-        if result:
+        if result and result.text:
             score_count = result.text
         else:
             score_count = 0
@@ -496,7 +513,7 @@ class MovieFinder:
 
         # 演员数
         result = soup.find(name='a', href=re.compile("/subject/.*?/celebrities"))
-        if result:
+        if result and result.text:
             actor_count = result.text[3:]
         else:
             actor_count = 0
@@ -506,11 +523,17 @@ class MovieFinder:
             r'<a href="https://movie.douban.com/subject/.*?/comments\?status=.">全部 (.*?) 条</a>',
             page_text,
         )
-        short_count = result.group(1)
+        if result:
+            short_count = result.group(1)
+        else:
+            short_count = 0
 
         # 影评数
         result = soup.find(name='a', href='reviews')
-        comment_count = result.text[3:-2]
+        if result and result.text:
+            comment_count = result.text[3:-2]
+        else:
+            comment_count = 0
 
         # 讨论数
         result = re.search(r'去这部影片的讨论区（全部(.*?)条）', page_text)
@@ -521,10 +544,10 @@ class MovieFinder:
 
         # 问题数
         result = re.search(r'全部(.*?)个问题', page_text)
-        if not result:
-            question_count = 0
-        else:
+        if result:
             question_count = result.group(1)
+        else:
+            question_count = 0
 
         # 以下为一对多的
 
@@ -565,6 +588,7 @@ class MovieFinder:
 
         Manager().movies_saver.add(
             movie_id=self.id,
+            image_url=image_url,
             movie_name=movie_name,
             length=length,
             year=year,

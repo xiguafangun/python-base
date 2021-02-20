@@ -37,7 +37,7 @@ proxies = {
 
 headers = {'User-Agent': random.choice(agents)}
 response = requests.get(
-    'https://movie.douban.com/subject/26746801/', headers=headers, proxies=proxies
+    'https://movie.douban.com/subject/26008197/', headers=headers, proxies=proxies
 )
 page_text = response.text
 
@@ -68,6 +68,14 @@ soup = BeautifulSoup(response.text, features='lxml')
 result = soup.find(name='title')
 movie_name = result.text.strip()[:-5]
 
+# 海报
+result = soup.find(name='img', attrs={"rel": "v:image", "title": "点击看更多海报"})
+
+if result:
+    image_url = result.src
+else:
+    image_url = ''
+
 # 年份
 result = soup.find(name='span', attrs={"class": "year"})
 year = result.text[1:-1]
@@ -81,10 +89,17 @@ else:
 
 # 评分
 result = soup.find(name='strong', attrs={"property": "v:average"})
-if result:
+if result.text != '':
     score = result.text
 else:
-    score = ''
+    result = soup.find(name='div', attrs={"class": "rating_sum"})
+    import ipdb
+
+    ipdb.set_trace()
+    if result:
+        score = result.text
+    else:
+        score = ''
 
 # 评分人数
 result = soup.find(name='span', attrs={"property": "v:votes"})
@@ -143,9 +158,6 @@ else:
 # ipdb.set_trace()
 
 result = soup.find(name='span', text='编剧').parent.find_all(name='a')
-import ipdb
-
-ipdb.set_trace()
 
 abc = dict(
     movie_name=movie_name,
