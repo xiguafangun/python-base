@@ -55,6 +55,16 @@ ACTORS_FILENAME = 'actors.csv'
 LIMIT = 10
 
 
+APPKEY = "bUpHU21ydDNRemY4SXc4bzo3bVB3VDdhMm9wWHROY0xv"
+PROXY_SERVER = 'secondtransfer.moguproxy.com:9001'
+TUNNEL_PROXY = {
+    "http://": "http://%s" % PROXY_SERVER,
+    "https://": "http://%s" % PROXY_SERVER,
+}
+
+# PROXY_WAY = 'ip'
+PROXY_WAY = 'tunnel'
+
 # http://httpbin.org/get
 
 ua = UserAgent()
@@ -277,14 +287,18 @@ class Manager:
 
     async def get_response(self, url):
         headers = {'User-Agent': ua.random}
-        if len(self.proxies) < 100:
-            self.get_proxies()
 
-        item = random.choice(self.proxies)
-        proxy = {
-            "http://": "http://%s:%s" % (item['ip'], item['port']),
-            "https://": "http://%s:%s" % (item['ip'], item['port']),
-        }
+        if PROXY_WAY == 'tunnel':
+            headers["Proxy-Authorization"] = 'Basic ' + APPKEY
+            proxy = TUNNEL_PROXY
+        elif PROXY_WAY == 'ip':
+            if len(self.proxies) < 100:
+                self.get_proxies()
+            item = random.choice(self.proxies)
+            proxy = {
+                "http://": "http://%s:%s" % (item['ip'], item['port']),
+                "https://": "http://%s:%s" % (item['ip'], item['port']),
+            }
 
         # proxy = {
         #     "all://": "http://%s:%s" % (item['ip'], item['port']),
@@ -297,9 +311,13 @@ class Manager:
             if item in self.proxies:
                 self.proxies.remove(item)
 
-        async with httpx.AsyncClient(proxies=proxy) as client:
+        async with httpx.AsyncClient(
+            proxies=proxy,
+            headers=headers,
+            verify=False,
+        ) as client:
             try:
-                response = await client.get(url, headers=headers)
+                response = await client.get(url)
                 if response.status_code != 200:
                     raise Exception('代理出错')
                 if len(response.text) < 500:
@@ -310,7 +328,8 @@ class Manager:
                 # traceback.print_exc()
                 # print(e)
                 # print('remove proxy')
-                remove_proxy(item)
+                if PROXY_WAY == 'ip':
+                    remove_proxy(item)
                 raise e
             else:
                 print(response.status_code)
@@ -380,17 +399,21 @@ class Saver:
             self.save()
 
     def save(self):
-        if not os.path.exists(self.filename):
-            with open(
-                self.filename, mode='w', newline='', encoding='utf-8-sig'
-            ) as csvfile:
-                writer = csv.DictWriter(csvfile, fieldnames=self.fieldnames)
-                writer.writeheader()
+        try:
+            if not os.path.exists(self.filename):
+                with open(
+                    self.filename, mode='w', newline='', encoding='utf-8-sig'
+                ) as csvfile:
+                    writer = csv.DictWriter(csvfile, fieldnames=self.fieldnames)
+                    writer.writeheader()
 
-        with open(self.filename, 'a', newline='', encoding='utf-8-sig') as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=self.fieldnames)
-            writer.writerows(self.cache)
-        self.cache = []
+            with open(self.filename, 'a', newline='', encoding='utf-8-sig') as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=self.fieldnames)
+                writer.writerows(self.cache)
+        except Exception as e:
+            print(e)
+        else:
+            self.cache = []
 
 
 class PageProcess:
