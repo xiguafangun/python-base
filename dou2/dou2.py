@@ -275,9 +275,9 @@ class Manager:
 
             await self.worker.execute(max_task_amount=100)
 
-            if time.time() - self.last_time > 600:
+            if time.time() - self.last_time > 120:
                 self.last_time = time.time()
-                # 每十分钟保存一次数据
+                # 每两分钟保存一次数据
                 await self.save_data()
 
             # time.sleep(2)
@@ -387,16 +387,19 @@ class Manager:
 
 
 class Saver:
-    def __init__(self, filename, fieldnames, cache_size=100):
+    # def __init__(self, filename, fieldnames, cache_size=100):
+    def __init__(self, filename, fieldnames):
         self.filename = filename
         self.fieldnames = fieldnames
-        self.cache_size = cache_size
+        # self.cache_size = cache_size
         self.cache = []
 
     def add(self, **kwargs):
         self.cache.append(kwargs)
-        if len(self.cache) > self.cache_size:
-            self.save()
+        # if len(self.cache) > self.cache_size:
+        #     # 如果出现意外中断
+        #     # 可能导致与 data 里的数据不一致
+        #     self.save()
 
     def save(self):
         try:
