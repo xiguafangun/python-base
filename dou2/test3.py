@@ -27,6 +27,7 @@ async def main():
         verify=False,
         # http2=True,
         headers=headers,
+        timeout=1,
     ) as client:
         r = await client.get(
             # "https://api.ip.sb/ip",

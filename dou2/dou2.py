@@ -55,7 +55,7 @@ ACTORS_FILENAME = 'actors.csv'
 LIMIT = 10
 
 
-APPKEY = "bUpHU21ydDNRemY4SXc4bzo3bVB3VDdhMm9wWHROY0xv"
+APPKEY = "QVNiWjN2bHRkeGh4a1A1RzpmWGpkTnk5c3dJQ1dMZTY4"
 PROXY_SERVER = 'secondtransfer.moguproxy.com:9001'
 TUNNEL_PROXY = {
     "http://": "http://%s" % PROXY_SERVER,
@@ -68,6 +68,10 @@ PROXY_WAY = 'tunnel'
 # http://httpbin.org/get
 
 ua = UserAgent()
+
+
+class NotFound(Exception):
+    pass
 
 
 class Worker:
@@ -252,7 +256,10 @@ class Manager:
                 # print(type(e))
                 print(e)
 
-                self.add_task(name, data, priority)
+                if isinstance(e, NotFound):
+                    print('放弃任务')
+                else:
+                    self.add_task(name, data, priority)
 
         self.running = True
 
@@ -315,10 +322,16 @@ class Manager:
             proxies=proxy,
             headers=headers,
             verify=False,
+            timeout=5,
         ) as client:
             try:
                 response = await client.get(url)
+                print(response.status_code)
                 if response.status_code != 200:
+                    print(url)
+                    if response.status_code == 404:
+                        raise NotFound('找不到页面')
+
                     raise Exception('代理出错')
                 if len(response.text) < 500:
                     raise Exception('数据太少')
@@ -332,7 +345,7 @@ class Manager:
                     remove_proxy(item)
                 raise e
             else:
-                print(response.status_code)
+                # print(response.status_code)
                 return response
 
     # def handle_movies(self, movie_id, title, year, score, comment_amount, comment):
@@ -453,7 +466,8 @@ class MovieFinder:
         self.url = 'https://movie.douban.com/subject/%s/' % id
 
     async def process(self):
-        page_text = await PageProcess(self.url).process()
+        response = await Manager().get_response(self.url)
+        page_text = response.text
         soup = BeautifulSoup(page_text, features='lxml')
 
         'movie_id',
