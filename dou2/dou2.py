@@ -16,6 +16,8 @@ import time
 from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
 
+import sys
+
 # AGENTS = [
 #     "Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6_8; en-us) AppleWebKit/534.50 (KHTML, like Gecko) Version/5.1 Safari/534.50",
 #     "Mozilla/5.0 (Windows; U; Windows NT 6.1; en-us) AppleWebKit/534.50 (KHTML, like Gecko) Version/5.1 Safari/534.50",
@@ -40,22 +42,25 @@ from fake_useragent import UserAgent
 #     "Mozilla/5.0 (X11; Linux x86_64; rv:76.0) Gecko/20100101 Firefox/76.0",
 # ]
 
-DATA_FILENAME = 'data'
+dirname, _ = os.path.split(os.path.abspath(sys.argv[0]))
+
 
 INDEX_URL = 'https://movie.douban.com/'
 
-MOVIES_FILENAME = 'movies.csv'
-CATES_FILENAME = 'cates.csv'
-LANGS_FILENAME = 'langs.csv'
-DIRECTORS_FILENAME = 'directors.csv'
-WRITERS_FILENAME = 'writers.csv'
-REGIONS_FILENAME = 'regions.csv'
-ACTORS_FILENAME = 'actors.csv'
+DATA_FILENAME = os.path.join(dirname, 'data')
+MOVIES_FILENAME = os.path.join(dirname, 'movies.csv')
+CATES_FILENAME = os.path.join(dirname, 'cates.csv')
+LANGS_FILENAME = os.path.join(dirname, 'langs.csv')
+DIRECTORS_FILENAME = os.path.join(dirname, 'directors.csv')
+WRITERS_FILENAME = os.path.join(dirname, 'writers.csv')
+REGIONS_FILENAME = os.path.join(dirname, 'regions.csv')
+ACTORS_FILENAME = os.path.join(dirname, 'actors.csv')
+
 
 LIMIT = 10
 
 
-APPKEY = "QVNiWjN2bHRkeGh4a1A1RzpmWGpkTnk5c3dJQ1dMZTY4"
+APPKEY = "MnlINm5yNFF3WVZiMTNYZTpwU0pxYVFSWHEzdlpCaWNa"
 PROXY_SERVER = 'secondtransfer.moguproxy.com:9001'
 TUNNEL_PROXY = {
     "http://": "http://%s" % PROXY_SERVER,
