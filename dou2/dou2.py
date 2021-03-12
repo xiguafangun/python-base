@@ -57,7 +57,7 @@ REGIONS_FILENAME = os.path.join(dirname, 'regions.csv')
 ACTORS_FILENAME = os.path.join(dirname, 'actors.csv')
 
 
-LIMIT = 10
+LIMIT = 1
 
 
 APPKEY = "MnlINm5yNFF3WVZiMTNYZTpwU0pxYVFSWHEzdlpCaWNa"
@@ -68,7 +68,8 @@ TUNNEL_PROXY = {
 }
 
 # PROXY_WAY = 'ip'
-PROXY_WAY = 'tunnel'
+# PROXY_WAY = 'tunnel'
+PROXY_WAY = None
 
 # http://httpbin.org/get
 
@@ -292,7 +293,7 @@ class Manager:
                 # 每两分钟保存一次数据
                 await self.save_data()
 
-            # time.sleep(2)
+            time.sleep(1)
 
         await self.save_data()
         print('程序终止成功')
@@ -311,6 +312,8 @@ class Manager:
                 "http://": "http://%s:%s" % (item['ip'], item['port']),
                 "https://": "http://%s:%s" % (item['ip'], item['port']),
             }
+        else:
+            proxy = None
 
         # proxy = {
         #     "all://": "http://%s:%s" % (item['ip'], item['port']),
